@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Sistema de controle de escala de motoristas — Francovig">
+<meta name="theme-color" content="#181816">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Escala">
+<title>Escala Motoristas — Controle Operacional</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+  --bg:#f5f4f0;--bg2:#fff;--bg3:#edede9;
+  --text:#181816;--text2:#5a5a56;--text3:#8a8a84;
+  --border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.16);
+  --red-bg:#fdf0ee;--red-t:#9b2a1a;--red-b:rgba(155,42,26,.2);
+  --yel-bg:#fdf7ee;--yel-t:#7a4e10;--yel-b:rgba(138,90,16,.2);
+  --grn-bg:#eef6f0;--grn-t:#1a6e38;--grn-b:rgba(26,122,58,.2);
+  --blu-bg:#eef2fb;--blu-t:#1a3d9b;--blu-b:rgba(26,61,155,.2);
+  --r:10px;--rs:6px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1a1a18;--bg2:#242422;--bg3:#2e2e2c;
+  --text:#e8e8e4;--text2:#9a9a94;--text3:#6a6a64;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --red-bg:#2e1614;--red-t:#f4856a;--red-b:rgba(244,133,106,.2);
+  --yel-bg:#2a2010;--yel-t:#e4a830;--yel-b:rgba(228,168,48,.2);
+  --grn-bg:#102216;--grn-t:#4ec877;--grn-b:rgba(78,200,119,.2);
+  --blu-bg:#101828;--blu-t:#6ea0f4;--blu-b:rgba(110,160,244,.2);
+}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:230px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border)}
+.sb-logo .t1{font-size:13px;font-weight:700}
+.sb-logo .t2{font-size:11px;color:var(--text3);margin-top:2px}
+.sb-nav{flex:1;padding:6px 0;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);padding:12px 16px 4px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:13px;cursor:pointer;color:var(--text2);border-left:3px solid transparent;transition:background .1s}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--bg3);color:var(--text);font-weight:600;border-left-color:var(--text)}
+.nav-badge{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--red-bg);color:var(--red-t);font-weight:700;min-width:18px;text-align:center}
+.sb-bottom{padding:12px 16px;border-top:1px solid var(--border)}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;gap:12px;flex-wrap:wrap}
+.topbar-title{font-size:15px;font-weight:700}
+.topbar-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.content{flex:1;padding:20px 24px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;border-radius:var(--rs);border:1px solid var(--border2);background:var(--text);color:var(--bg);transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.85}.btn:active{transform:scale(.98)}
+.btn.outline{background:transparent;color:var(--text)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.green{background:#1a6e38;border-color:#1a6e38;color:#fff}
+.btn.blue{background:#1a3d9b;border-color:#1a3d9b;color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.sdot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.sdot.ok{background:#1a6e38}.sdot.err{background:#c0392b}.sdot.idle{background:#aaa}
+.sdot.spin{background:#f59e0b;animation:blink .7s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;margin-bottom:20px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px}
+.kpi-val{font-size:24px;font-weight:700;line-height:1.1}
+.kpi-lab{font-size:11px;color:var(--text3);margin-top:3px}
+.kpi.red .kpi-val{color:var(--red-t)}.kpi.yel .kpi-val{color:var(--yel-t)}.kpi.grn .kpi-val{color:var(--grn-t)}
+.alert-card{border-radius:var(--r);margin-bottom:8px;overflow:hidden;border:1px solid var(--red-b);background:var(--red-bg)}
+.alert-card.warn{background:var(--yel-bg);border-color:var(--yel-b)}
+.alert-card.info{background:var(--blu-bg);border-color:var(--blu-b)}
+.alert-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;gap:8px}
+.alert-title{font-size:13px;font-weight:600;color:var(--red-t)}
+.alert-card.warn .alert-title{color:var(--yel-t)}
+.alert-card.info .alert-title{color:var(--blu-t)}
+.alert-ct{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--bg);border:1px solid var(--border);color:var(--text2);flex-shrink:0}
+.alert-chev{font-size:11px;color:var(--text3);transition:transform .2s}
+.alert-body{display:none;padding:0 14px 12px;border-top:1px solid var(--red-b)}
+.alert-card.warn .alert-body{border-top-color:var(--yel-b)}
+.alert-body.open{display:block}
+.fix{font-size:12px;color:var(--text2);margin:8px 0 6px;line-height:1.55}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:6px 8px;font-size:11px;font-weight:600;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr.rr td{background:var(--red-bg)}.tbl tr.ry td{background:var(--yel-bg)}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600;white-space:nowrap}
+.badge.entrada{background:var(--grn-bg);color:var(--grn-t)}
+.badge.saida{background:var(--yel-bg);color:var(--yel-t)}
+.badge.interno{background:var(--blu-bg);color:var(--blu-t)}
+.badge.other{background:var(--bg3);color:var(--text2)}
+.badge.open{background:var(--red-bg);color:var(--red-t)}
+.sec-title{font-size:13px;font-weight:700;margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+.turno-lbl{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:8px 0 4px}
+.cfg-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.cfg-box h3{font-size:14px;font-weight:700;margin-bottom:14px}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.cfg-lbl{font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);margin-bottom:4px}
+.cfg-inp{width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border2);border-radius:var(--rs);background:var(--bg3);color:var(--text)}
+.cfg-inp:focus{outline:none;border-color:var(--text)}
+.cfg-hint{font-size:11px;color:var(--text3);margin-top:3px}
+.cfg-msg{font-size:12px;margin-top:8px;display:none;padding:8px 10px;border-radius:var(--rs)}
+.cfg-msg.ok{background:var(--grn-bg);color:var(--grn-t);display:block}
+.cfg-msg.err{background:var(--red-bg);color:var(--red-t);display:block}
+.search-wrap{position:relative;margin-bottom:12px}
+.search-wrap input{width:100%;padding:8px 10px 8px 32px;font-size:13px;border:1px solid var(--border2);border-radius:var(--rs);background:var(--bg3);color:var(--text)}
+.search-wrap input:focus{outline:none;border-color:var(--text)}
+.s-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3)}
+.drv-card{border-bottom:1px solid var(--border);padding:8px 0}
+.drv-head{display:flex;align-items:center;gap:8px;cursor:pointer}
+.drv-name{font-size:13px;font-weight:600}
+.drv-meta{font-size:11px;color:var(--text3);margin-left:auto}
+.drv-body{display:none;margin-top:8px}.drv-body.open{display:block}
+.tl-wrap{margin-bottom:14px}
+.tl-lbl{font-size:12px;font-weight:600;margin-bottom:4px}
+.tl-bar{position:relative;height:24px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.tl-dot{position:absolute;height:20px;top:2px;width:5px;border-radius:3px;cursor:pointer}
+.tl-hr{position:absolute;top:0;width:1px;height:100%;background:var(--border2)}
+.tl-hrs{display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg2);border-radius:var(--r);padding:22px 24px;max-width:580px;width:94%;border:1px solid var(--border2);max-height:88vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:12px}
+.modal p,.modal li{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:5px}
+.modal ul,.modal ol{padding-left:18px;margin-bottom:10px}
+.modal-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.panel{display:none}.panel.active{display:block}
+.empty{padding:32px;text-align:center;color:var(--text3);font-size:13px}
+.empty .ico{font-size:28px;margin-bottom:8px}
+.step-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px}
+.step-num{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--text);color:var(--bg);font-size:12px;font-weight:700;align-items:center;justify-content:center;margin-right:8px;flex-shrink:0}
+.step-title{font-size:13px;font-weight:700;display:flex;align-items:center;margin-bottom:8px}
+.step-body{font-size:12px;color:var(--text2);line-height:1.7;margin-left:32px}
+.step-body code{background:var(--bg3);padding:1px 6px;border-radius:4px;font-family:monospace;font-size:11px}
+.copy-block{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);padding:10px 12px;font-size:11px;font-family:monospace;white-space:pre-wrap;word-break:break-all;position:relative;margin:6px 0}
+.copy-btn{position:absolute;right:8px;top:8px;padding:3px 8px;font-size:10px;cursor:pointer;border-radius:4px;border:1px solid var(--border2);background:var(--bg2);color:var(--text)}
+.warn-box{background:var(--yel-bg);border:1px solid var(--yel-b);border-radius:var(--rs);padding:10px 12px;font-size:12px;color:var(--yel-t);margin:8px 0}
+.ok-box{background:var(--grn-bg);border:1px solid var(--grn-b);border-radius:var(--rs);padding:10px 12px;font-size:12px;color:var(--grn-t);margin:8px 0}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sb-logo">
+    <div class="t1">🚌 Escala Operacional</div>
+    <div class="t2" id="sb-date">Aguardando sincronização</div>
+  </div>
+  <div class="sb-nav">
+    <div class="nav-sec">Dashboard</div>
+    <div class="nav-item active" data-panel="alertas" onclick="nav(this)">⚠ Alertas <span class="nav-badge" id="bdg-alertas">—</span></div>
+    <div class="nav-item" data-panel="timeline" onclick="nav(this)">📅 Linha do tempo</div>
+    <div class="nav-sec">Por cliente</div>
+    <div class="nav-item" data-panel="shopee" onclick="nav(this)">🟠 Shopee</div>
+    <div class="nav-item" data-panel="boticario" onclick="nav(this)">🟣 Boticário</div>
+    <div class="nav-item" data-panel="enaex" onclick="nav(this)">🔵 Enaex</div>
+    <div class="nav-item" data-panel="jtekt" onclick="nav(this)">🟢 JTEKT</div>
+    <div class="nav-item" data-panel="faurecia" onclick="nav(this)">🟡 Faurecia</div>
+    <div class="nav-sec">Motoristas</div>
+    <div class="nav-item" data-panel="motoristas" onclick="nav(this)">👤 Motoristas</div>
+    <div class="nav-item" data-panel="veiculos" onclick="nav(this)">🚐 Prefixos</div>
+    <div class="nav-sec">Sistema</div>
+    <div class="nav-item" data-panel="config" onclick="nav(this)">⚙ Configuração</div>
+    <div class="nav-item" data-panel="ajuda" onclick="nav(this)">📖 Como configurar</div>
+  </div>
+  <div class="sb-bottom">
+    <button class="btn green" style="width:100%;justify-content:center" onclick="openGenModal()">+ Gerar próxima escala</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="top-title">Sistema de Escala</div>
+      <div class="topbar-sub" id="top-sub">Configure o Apps Script para sincronizar</div>
+    </div>
+    <div class="topbar-right">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)">
+        <span class="sdot idle" id="sdot"></span>
+        <span id="stxt">Não sincronizado</span>
+      </span>
+      <button class="btn outline sm" id="btn-planilha" onclick="openSheet()" title="Abrir planilha no Sheets">📊 Planilha</button>
+      <button class="btn outline sm" id="btn-sync" onclick="syncData()">↻ Sincronizar</button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div style="padding:16px 24px 0">
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-val" id="k-total">—</div><div class="kpi-lab">Total serviços</div></div>
+      <div class="kpi"><div class="kpi-val" id="k-mot">—</div><div class="kpi-lab">Motoristas</div></div>
+      <div class="kpi red"><div class="kpi-val" id="k-conf">—</div><div class="kpi-lab">Conflitos horário</div></div>
+      <div class="kpi red"><div class="kpi-val" id="k-car">—</div><div class="kpi-lab">Conflitos prefixo</div></div>
+      <div class="kpi yel"><div class="kpi-val" id="k-open">—</div><div class="kpi-lab">Linhas abertas</div></div>
+      <div class="kpi yel"><div class="kpi-val" id="k-folga">—</div><div class="kpi-lab">Em folga</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="panel active" id="panel-alertas"><div id="al-container"><div class="empty"><div class="ico">⚙</div>Configure o Apps Script e sincronize para ver os alertas</div></div></div>
+    <div class="panel" id="panel-timeline"><div id="tl-container"><div class="empty"><div class="ico">📅</div>Sincronize para ver a linha do tempo</div></div></div>
+    <div class="panel" id="panel-shopee"><div id="c-shopee"></div></div>
+    <div class="panel" id="panel-boticario"><div id="c-boticario"></div></div>
+    <div class="panel" id="panel-enaex"><div id="c-enaex"></div></div>
+    <div class="panel" id="panel-jtekt"><div id="c-jtekt"></div></div>
+    <div class="panel" id="panel-faurecia"><div id="c-faurecia"></div></div>
+    <div class="panel" id="panel-motoristas">
+      <div class="search-wrap"><span class="s-ico">🔍</span><input type="text" placeholder="Buscar motorista…" oninput="filterList('drv-list',this.value)"></div>
+      <div id="drv-list"><div class="empty"><div class="ico">👤</div>Sincronize para ver os motoristas</div></div>
+    </div>
+    <div class="panel" id="panel-veiculos">
+      <div class="search-wrap"><span class="s-ico">🔍</span><input type="text" placeholder="Buscar prefixo…" oninput="filterList('veh-list',this.value)"></div>
+      <div id="veh-list"><div class="empty"><div class="ico">🚐</div>Sincronize para ver os veículos</div></div>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="panel" id="panel-config">
+      <div class="cfg-box">
+        <h3>⚙ URL do Google Apps Script (Web App)</h3>
+        <div style="margin-bottom:14px">
+          <div class="cfg-lbl">URL do Web App</div>
+          <input class="cfg-inp" id="cfg-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+          <div class="cfg-hint">Cole aqui a URL gerada ao publicar o Apps Script como Web App</div>
+        </div>
+        <div style="margin-bottom:14px">
+          <div class="cfg-lbl">Nome da aba</div>
+          <input class="cfg-inp" id="cfg-tab" placeholder="Página1" value="Página1">
+          <div class="cfg-hint">Nome exato da aba na planilha (sensível a maiúsculas)</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="saveConfig()">Salvar e sincronizar</button>
+          <button class="btn outline" onclick="loadSample()">Carregar dados de exemplo</button>
+        </div>
+        <div class="cfg-msg" id="cfg-msg"></div>
+      </div>
+      <div class="warn-box">⚠ Não utilize API Key direto no arquivo HTML — causa erro de CORS quando aberto como arquivo local. O Apps Script resolve isso automaticamente.</div>
+    </div>
+
+    <!-- AJUDA -->
+    <div class="panel" id="panel-ajuda">
+      <div class="sec-title">📖 Como conectar ao Google Sheets — Passo a passo</div>
+
+      <div class="step-box">
+        <div class="step-title"><span class="step-num">1</span>Abra o Apps Script da sua planilha</div>
+        <div class="step-body">
+          Na planilha <strong>"Escala dia a dia"</strong>, clique em:<br>
+          <strong>Extensões → Apps Script</strong><br>
+          Isso abre o editor de código vinculado à planilha.
+        </div>
+      </div>
+
+      <div class="step-box">
+        <div class="step-title"><span class="step-num">2</span>Cole o código abaixo no editor</div>
+        <div class="step-body">
+          Apague o conteúdo existente e cole este código completo:
+          <div class="copy-block" id="gas-code">// ── LEITURA (GET) ────────────────────────────────────────────────────────────
+function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!e || !e.parameter) {
+    return out({values: ss.getSheets()[0].getDataRange().getDisplayValues()});
+  }
+  var tabName = e.parameter.tab || ss.getSheets()[0].getName();
+  var s = ss.getSheetByName(tabName);
+  if (!s) return out({error: 'Aba não encontrada: ' + tabName});
+  return out({values: s.getDataRange().getDisplayValues()});
+}
+
+// ── CRIAÇÃO DE ABA (POST) ────────────────────────────────────────────────────
+function doPost(e) {
+  try {
+    var ss      = SpreadsheetApp.getActiveSpreadsheet();
+    var payload = JSON.parse(e.postData.contents);
+    var tabName = payload.tab;
+    var srcTab  = payload.srcTab;
+    var matrix  = payload.rows;
+
+    if (!tabName || !matrix) return out({error: 'Parâmetros tab e rows são obrigatórios'});
+
+    // Cria ou limpa a aba destino
+    var s = ss.getSheetByName(tabName);
+    if (s) {
+      s.clearContents();
+    } else {
+      var src = srcTab ? ss.getSheetByName(srcTab) : null;
+      s = src ? src.copyTo(ss) : ss.insertSheet(tabName);
+      s.setName(tabName);
+      if (src) s.clearContents();
+    }
+
+    // Grava todas as linhas de uma vez
+    if (matrix.length > 0) {
+      s.getRange(1, 1, matrix.length, matrix[0].length).setValues(matrix);
+    }
+
+    // Posiciona a nova aba logo após a aba de origem
+    if (srcTab) {
+      var srcSheet = ss.getSheetByName(srcTab);
+      if (srcSheet) {
+        ss.setActiveSheet(s);
+        ss.moveActiveSheet(srcSheet.getIndex() + 1);
+      }
+    }
+
+    return out({ok: true, tab: tabName, rows: matrix.length});
+  } catch(err) {
+    return out({error: err.message});
+  }
+}
+
+function out(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+</div>
+          <button class="btn outline sm" onclick="copyCode()">📋 Copiar código</button>
+        </div>
+      </div>
+
+      <div class="step-box">
+        <div class="step-title"><span class="step-num">3</span>Publique como Web App</div>
+        <div class="step-body">
+          No editor do Apps Script:<br>
+          1. Clique em <strong>Implantar → Nova implantação</strong><br>
+          2. Tipo: <strong>App da Web</strong><br>
+          3. Executar como: <strong>Eu (seu e-mail)</strong><br>
+          4. Quem pode acessar: <strong>Qualquer pessoa</strong><br>
+          5. Clique <strong>Implantar</strong> e copie a URL gerada<br><br>
+          A URL tem este formato:<br>
+          <code>https://script.google.com/macros/s/AKfy…/exec</code>
+        </div>
+      </div>
+
+      <div class="step-box">
+        <div class="step-title"><span class="step-num">4</span>Cole a URL em Configuração</div>
+        <div class="step-body">
+          Vá em <strong>⚙ Configuração</strong> neste sistema, cole a URL do Web App e clique <strong>Salvar e sincronizar</strong>.<br><br>
+          Pronto — o sistema vai buscar os dados diretamente da planilha sem erro de CORS.
+        </div>
+      </div>
+
+      <div class="ok-box">✓ Esta abordagem funciona independente de onde o arquivo HTML estiver — local, Drive ou servidor.</div>
+
+      <div class="step-box">
+        <div class="step-title"><span class="step-num">5</span>Atenção: nome da aba e republica obrigatória</div>
+        <div class="step-body">
+          Verifique o nome exato da aba na planilha (parte inferior do Sheets). Use exatamente igual em <strong>⚙ Configuração → Nome da aba</strong>.<br>
+          Exemplos: <code>Página1</code> / <code>Escala</code> / <code>12/06/2026</code><br><br>
+          <strong>⚠ Importante:</strong> sempre que atualizar o código do Apps Script, clique em <strong>Implantar → Nova implantação</strong> e cole a nova URL no sistema. "Editar implantação" não atualiza o código em execução.
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-title"><span class="step-num">6</span>Gerar nova aba diretamente na planilha</div>
+        <div class="step-body">
+          Com o novo código do Apps Script instalado, o botão <strong>"+ Gerar próxima escala"</strong> vai criar uma nova aba dentro da própria planilha (ex: <code>"13/06/2026"</code>), logo ao lado da aba atual, com todos os dados do dia seguinte já preenchidos e as folgas marcadas como <strong>SUBSTITUIR</strong>.<br><br>
+          Após criar, o sistema oferece sincronizar automaticamente para a nova aba.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div><!-- /app -->
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal" onclick="e=>e.target===this&&closeModal()">
+  <div class="modal" id="modal-inner"></div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let DATA = [], CFG = {};
+let CONF = { drivers:[], cars:[], folga:[], open:[] };
+const SHEET_ID = '1ulpc38PrlLSTgoPb7Gn7iagZb-BVSSwQ-BUL9zvSwsI';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+// Sheets returns times as decimals (0.0916=02:12), "HH:MM:SS", or plain "HH:MM"
+const fmtTime = v => {
+  if(v===null||v===undefined||v==='') return '';
+  if(typeof v === 'number') {
+    const totalMin = Math.round(v * 24 * 60);
+    const h = Math.floor(totalMin/60) % 24;
+    const m = totalMin % 60;
+    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  }
+  const s = String(v).trim();
+  if(/^\d{1,2}:\d{2}:\d{2}$/.test(s)) return s.slice(0,5);
+  return s;
+};
+const toMin = t => {
+  if(!t) return null;
+  const s = (typeof t==='number') ? fmtTime(t) : String(t).trim();
+  if(!s.includes(':')) return null;
+  const[h,m]=s.split(':').map(Number);
+  if(isNaN(h)||isNaN(m)) return null;
+  return h*60+m;
+};
+const isFolga = r => r.obs.toLowerCase().includes('folga');
+const isOpen  = r => r.motorista==='SUBSTITUIR';
+const clientOf = e => {
+  const s=e.toLowerCase();
+  if(s.includes('shopee'))return'shopee';
+  if(s.includes('boticário')||s.includes('boticario'))return'boticario';
+  if(s.includes('enaex')||s.includes('garagem')||s.includes('reserva'))return'enaex';
+  if(s.includes('jtekt'))return'jtekt';
+  if(s.includes('faurecia')||s.includes('forvia'))return'faurecia';
+  return'outros';
+};
+const typeBadge = t => {
+  const k=(t||'').toLowerCase();
+  const c=k==='entrada'?'entrada':k.startsWith('saí')||k==='saida'?'saida':k==='interno'?'interno':'other';
+  return `<span class="badge ${c}">${t}</span>`;
+};
+const rowCls = r => isOpen(r)?'ry':CONF.drivers.some(c=>c.motorista.toLowerCase()===r.motorista.toLowerCase())||CONF.cars.some(c=>c.prefixo===r.prefixo&&r.prefixo&&r.prefixo!=='ok')?'rr':isFolga(r)?'ry':'';
+
+function setStatus(s,msg){ document.getElementById('sdot').className='sdot '+s; document.getElementById('stxt').textContent=msg; }
+
+// ── Config ────────────────────────────────────────────────────────────────────
+function loadCfg(){
+  try{CFG=JSON.parse(localStorage.getItem('esc_cfg')||'{}');}catch(e){CFG={};}
+  if(CFG.url) document.getElementById('cfg-url').value=CFG.url;
+  if(CFG.tab) document.getElementById('cfg-tab').value=CFG.tab;
+}
+function saveConfig(){
+  CFG={url:document.getElementById('cfg-url').value.trim(), tab:document.getElementById('cfg-tab').value.trim()||'Página1'};
+  if(!CFG.url){showCfgMsg('Cole a URL do Apps Script antes de salvar.','err');return;}
+  localStorage.setItem('esc_cfg',JSON.stringify(CFG));
+  showCfgMsg('Salvo. Sincronizando…','ok');
+  syncData();
+}
+function showCfgMsg(t,cls){ const el=document.getElementById('cfg-msg'); el.textContent=t; el.className='cfg-msg '+cls; setTimeout(()=>el.className='cfg-msg',3500); }
+
+// ── Sync via Apps Script ──────────────────────────────────────────────────────
+async function syncData(){
+  if(!CFG.url){ setStatus('idle','Configure o Apps Script primeiro'); nav(document.querySelector('[data-panel="ajuda"]')); return; }
+  setStatus('spin','Sincronizando…');
+  document.getElementById('btn-sync').disabled=true;
+
+  const url = CFG.url + '?tab=' + encodeURIComponent(CFG.tab||'Página1');
+  try{
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const json = await res.json();
+    if(json.error) throw new Error(json.error);
+    const rows = json.values||[];
+    // Helper: safely convert any cell value (number, date, null, etc.) to trimmed string
+    // cel: safely convert any cell to trimmed string
+    const cel = (r, i) => String(r[i] !== undefined && r[i] !== null ? r[i] : '').trim();
+    // celT: for time columns — keeps numeric value so fmtTime can convert from decimal
+    const celT = (r, i) => { const v = r[i]; if(v===undefined||v===null||v==='') return ''; return fmtTime(v); };
+    // detect header row
+    let start=0;
+    if(rows.length && cel(rows[0],2).toLowerCase().includes('motorista')) start=1;
+    DATA = rows.slice(start).map(r=>({
+      dia:      cel(r,0),
+      data:     cel(r,1),
+      motorista:cel(r,2),
+      obs:      cel(r,3),
+      linha:    cel(r,4),
+      tipo:     cel(r,5),
+      turno:    cel(r,6),
+      saida:    celT(r,7),
+      chegada:  celT(r,8),
+      empresa:  cel(r,11),
+      prefixo:  cel(r,12),
+    })).filter(r=>r.motorista&&r.motorista!==','&&r.linha);
+
+    const d=DATA.find(r=>r.data)?.data||'—', dy=DATA.find(r=>r.dia)?.dia||'—';
+    setStatus('ok','Sync: '+new Date().toLocaleTimeString('pt-BR'));
+    document.getElementById('sb-date').textContent=dy+' '+d;
+    document.getElementById('top-title').textContent='Escala — '+dy+', '+d;
+    document.getElementById('top-sub').textContent=DATA.length+' serviços carregados';
+    detect(); renderAll();
+  }catch(e){
+    setStatus('err','Erro: '+e.message);
+    showModal(`<h3>❌ Erro ao sincronizar</h3>
+      <p><strong>Detalhe:</strong> ${e.message}</p>
+      <p>Verifique:</p>
+      <ul>
+        <li>A URL do Apps Script está correta em <strong>⚙ Configuração</strong></li>
+        <li>O script foi publicado como <strong>Web App</strong> com acesso <strong>"Qualquer pessoa"</strong></li>
+        <li>O nome da aba está correto (sensível a maiúsculas)</li>
+        <li>Após atualizar o código do script, clique <strong>"Nova implantação"</strong> — não "Editar implantação"</li>
+      </ul>
+      <div class="modal-actions">
+        <button class="btn outline" onclick="nav(document.querySelector('[data-panel=ajuda]'));closeModal()">Ver passo a passo</button>
+        <button class="btn outline" onclick="closeModal()">Fechar</button>
+      </div>`);
+  }finally{
+    document.getElementById('btn-sync').disabled=false;
+  }
+}
+
+// ── Conflict detection ────────────────────────────────────────────────────────
+function detect(){
+  CONF={drivers:[],cars:[],folga:[],open:[]};
+  CONF.open=DATA.filter(isOpen);
+  const byD={};
+  DATA.filter(r=>!isOpen(r)&&r.motorista).forEach(r=>{const k=r.motorista.toLowerCase();if(!byD[k])byD[k]=[];byD[k].push(r);});
+  Object.values(byD).forEach(rows=>{
+    if(rows.some(r=>!isFolga(r))&&rows.some(isFolga)) CONF.folga.push({motorista:rows[0].motorista,linhas:rows.map(r=>r.linha)});
+    for(let i=0;i<rows.length;i++) for(let j=i+1;j<rows.length;j++){
+      const a=rows[i],b=rows[j],at=toMin(a.chegada),bt=toMin(b.chegada);
+      if(at!==null&&bt!==null&&at!==bt&&Math.abs(at-bt)<30&&!CONF.drivers.find(c=>c.motorista===rows[0].motorista&&c.linha1===a.linha&&c.linha2===b.linha))
+        CONF.drivers.push({motorista:rows[0].motorista,linha1:a.linha,h1:a.chegada,linha2:b.linha,h2:b.chegada,diff:Math.abs(at-bt)});
+    }
+  });
+  const byC={};
+  DATA.forEach(r=>{const p=r.prefixo;if(!p||['ok','van','plantao','01 taxi',''].includes(p.toLowerCase()))return;if(!byC[p])byC[p]=[];byC[p].push(r);});
+  Object.entries(byC).forEach(([p,rows])=>{if(rows.length<2)return;
+    for(let i=0;i<rows.length;i++)for(let j=i+1;j<rows.length;j++){
+      const a=rows[i],b=rows[j],at=toMin(a.chegada),bt=toMin(b.chegada);
+      if(at!==null&&bt!==null&&at===bt) CONF.cars.push({prefixo:p,motorista1:a.motorista,linha1:a.linha,h1:a.chegada,motorista2:b.motorista,linha2:b.linha});
+    }
+  });
+  const tot=CONF.drivers.length+CONF.cars.length+CONF.folga.length+CONF.open.length;
+  const b=document.getElementById('bdg-alertas');
+  b.textContent=tot; b.style.background=tot>0?'var(--red-bg)':'var(--grn-bg)'; b.style.color=tot>0?'var(--red-t)':'var(--grn-t)';
+  document.getElementById('k-total').textContent=DATA.length;
+  document.getElementById('k-mot').textContent=new Set(DATA.filter(r=>!isOpen(r)).map(r=>r.motorista.toLowerCase())).size;
+  document.getElementById('k-conf').textContent=CONF.drivers.length;
+  document.getElementById('k-car').textContent=CONF.cars.length;
+  document.getElementById('k-open').textContent=CONF.open.length;
+  document.getElementById('k-folga').textContent=DATA.filter(isFolga).length;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderAll(){ renderAlerts();renderTimeline();
+  renderClient('shopee',r=>clientOf(r.empresa)==='shopee');
+  renderClient('boticario',r=>clientOf(r.empresa)==='boticario');
+  renderClient('enaex',r=>clientOf(r.empresa)==='enaex');
+  renderClient('jtekt',r=>clientOf(r.empresa)==='jtekt');
+  renderClient('faurecia',r=>clientOf(r.empresa)==='faurecia');
+  renderDrivers();renderVehicles();
+}
+
+function aCard(cls,title,ct,fix,table){
+  return`<div class="alert-card ${cls}"><div class="alert-head" onclick="tog(this)"><span class="alert-title">${title}</span><span class="alert-ct">${ct}</span><span class="alert-chev">▼</span></div><div class="alert-body"><p class="fix">✏ ${fix}</p>${table}</div></div>`;
+}
+function tog(h){const b=h.nextElementSibling;b.classList.toggle('open');h.querySelector('.alert-chev').style.transform=b.classList.contains('open')?'rotate(180deg)':'';}
+
+function renderAlerts(){
+  const el=document.getElementById('al-container');
+  const tot=CONF.drivers.length+CONF.cars.length+CONF.folga.length+CONF.open.length;
+  if(!tot){el.innerHTML='<div class="empty"><div class="ico">✅</div>Nenhuma divergência encontrada!</div>';return;}
+  let h=`<div class="sec-title">Divergências detectadas <span style="font-size:11px;font-weight:400;color:var(--text3)">${tot} no total</span></div>`;
+  if(CONF.open.length) h+=aCard('warn',`🔓 ${CONF.open.length} linha(s) abertas — sem motorista`,CONF.open.length,
+    'Linhas sem motorista definido. Substitua SUBSTITUIR pelo nome do motorista na planilha.',
+    `<table class="tbl" style="margin-top:8px"><thead><tr><th>Linha</th><th>Empresa</th><th>Turno</th><th>Horário</th><th>Prefixo</th><th>Motivo</th></tr></thead><tbody>${CONF.open.map(r=>`<tr><td>${r.linha}</td><td>${r.empresa}</td><td>${r.turno}</td><td>${r.chegada}</td><td>${r.prefixo}</td><td style="font-size:11px;color:var(--yel-t)">${r.obs}</td></tr>`).join('')}</tbody></table>`);
+  if(CONF.drivers.length){const u=[...new Map(CONF.drivers.map(c=>[c.motorista+c.linha1+c.linha2,c])).values()];
+    h+=aCard('',`⚡ ${u.length} conflito(s) de horário`,u.length,
+      'Motoristas com dois serviços com menos de 30 min entre chegadas. Confirme viabilidade ou corrija.',
+      `<table class="tbl" style="margin-top:8px"><thead><tr><th>Motorista</th><th>Linha 1</th><th>Chegada</th><th>Linha 2</th><th>Chegada</th><th>Diferença</th></tr></thead><tbody>${u.map(c=>`<tr><td>${c.motorista}</td><td style="font-size:11px">${c.linha1}</td><td>${c.h1}</td><td style="font-size:11px">${c.linha2}</td><td>${c.h2}</td><td style="color:var(--red-t);font-weight:700">${c.diff}min</td></tr>`).join('')}</tbody></table>`);}
+  if(CONF.cars.length) h+=aCard('',`🚐 ${CONF.cars.length} prefixo(s) duplicado(s) no mesmo horário`,CONF.cars.length,
+    'Mesmo veículo em dois serviços com chegada idêntica. Troque o veículo em uma das linhas.',
+    `<table class="tbl" style="margin-top:8px"><thead><tr><th>Prefixo</th><th>Motorista 1</th><th>Linha</th><th>Motorista 2</th><th>Linha</th><th>Horário</th></tr></thead><tbody>${CONF.cars.map(c=>`<tr><td><strong>${c.prefixo}</strong></td><td>${c.motorista1}</td><td style="font-size:11px">${c.linha1}</td><td>${c.motorista2}</td><td style="font-size:11px">${c.linha2}</td><td>${c.h1}</td></tr>`).join('')}</tbody></table>`);
+  if(CONF.folga.length) h+=aCard('warn',`🏖 ${CONF.folga.length} motorista(s) em folga com serviço ativo`,CONF.folga.length,
+    'Motoristas marcados como Folga mas ainda ativos em outra linha. Confirme ou remova o registro.',
+    `<table class="tbl" style="margin-top:8px"><thead><tr><th>Motorista</th><th>Linhas</th></tr></thead><tbody>${CONF.folga.map(f=>`<tr><td>${f.motorista}</td><td style="font-size:11px">${f.linhas.join('<br>')}</td></tr>`).join('')}</tbody></table>`);
+  el.innerHTML=h;
+}
+
+function renderClient(key,fn){
+  const el=document.getElementById('c-'+key);
+  const rows=DATA.filter(fn); if(!rows.length){el.innerHTML='<div class="empty"><div class="ico">📋</div>Sem dados</div>';return;}
+  const byT={};rows.forEach(r=>{const t=r.turno||'Sem turno';if(!byT[t])byT[t]=[];byT[t].push(r);});
+  const ord=['1º Turno','2º Turno','3º Turno','Madrugada','Manhã','ADM','Meio dia','Tarde','Noite','Sem turno'];
+  const ts=[...new Set([...ord,...Object.keys(byT)])].filter(t=>byT[t]);
+  let h=`<div class="sec-title">${rows.length} serviços</div>`;
+  ts.forEach(t=>{
+    h+=`<div class="turno-lbl">${t}</div><table class="tbl"><thead><tr><th>Motorista</th><th>Linha</th><th>Tipo</th><th>Saída</th><th>Chegada</th><th>Prefixo</th><th>Obs</th></tr></thead><tbody>`;
+    byT[t].sort((a,b)=>(toMin(a.chegada)||0)-(toMin(b.chegada)||0)).forEach(r=>{
+      h+=`<tr class="${rowCls(r)}"><td style="font-weight:${isOpen(r)?700:400};color:${isOpen(r)?'var(--red-t)':'inherit'}">${r.motorista}</td><td style="font-size:11px">${r.linha}</td><td>${typeBadge(r.tipo)}</td><td>${r.saida}</td><td><strong>${r.chegada}</strong></td><td>${r.prefixo}</td><td style="font-size:11px;color:var(--text3)">${r.obs}</td></tr>`;
+    });
+    h+=`</tbody></table>`;
+  });
+  el.innerHTML=h;
+}
+
+function renderTimeline(){
+  const el=document.getElementById('tl-container'); if(!DATA.length)return;
+  const cls=[{key:'shopee',lbl:'🟠 Shopee',c:'#EE4D2D'},{key:'boticario',lbl:'🟣 Boticário',c:'#9B59B6'},{key:'enaex',lbl:'🔵 Enaex',c:'#1A73E8'},{key:'jtekt',lbl:'🟢 JTEKT',c:'#0D7C34'},{key:'faurecia',lbl:'🟡 Faurecia',c:'#E67625'}];
+  const hrs=[0,2,4,6,8,10,12,14,16,18,20,22,24];
+  let h=`<div class="sec-title">Distribuição de serviços por horário</div>`;
+  cls.forEach(({key,lbl,c})=>{
+    const rows=DATA.filter(r=>clientOf(r.empresa)===key&&!isOpen(r)); if(!rows.length)return;
+    h+=`<div class="tl-wrap"><div class="tl-lbl">${lbl} <span style="font-size:11px;font-weight:400;color:var(--text3)">(${rows.length})</span></div><div class="tl-bar">`;
+    hrs.forEach(hh=>{h+=`<div class="tl-hr" style="left:${Math.round(hh/24*100)}%"></div>`;});
+    rows.forEach(r=>{const t=toMin(r.chegada);if(t===null)return;const l=Math.round(t/1440*100);const cc=CONF.drivers.some(c=>c.motorista.toLowerCase()===r.motorista.toLowerCase())?'#e24b4a':c;h+=`<div class="tl-dot" style="left:${l}%;background:${cc}" title="${r.motorista} — ${r.linha} (${r.chegada})"></div>`;});
+    h+=`</div><div class="tl-hrs">${hrs.map(hh=>`<span>${String(hh).padStart(2,'0')}h</span>`).join('')}</div></div>`;
+  });
+  el.innerHTML=h;
+}
+
+function renderDrivers(){
+  const el=document.getElementById('drv-list'); const map={};
+  DATA.filter(r=>!isOpen(r)&&r.motorista).forEach(r=>{const k=r.motorista.toLowerCase();if(!map[k])map[k]={name:r.motorista,rows:[]};map[k].rows.push(r);});
+  let h='';
+  Object.values(map).sort((a,b)=>a.name.localeCompare(b.name,'pt')).forEach(({name,rows})=>{
+    const hC=CONF.drivers.some(c=>c.motorista.toLowerCase()===name.toLowerCase());
+    const hF=rows.some(isFolga);
+    const tags=(hC?`<span class="badge" style="background:var(--red-bg);color:var(--red-t)">⚡Conflito</span> `:'')+( hF?`<span class="badge" style="background:var(--yel-bg);color:var(--yel-t)">Folga</span>`:'');
+    h+=`<div class="drv-card" data-name="${name.toLowerCase()}"><div class="drv-head" onclick="this.nextElementSibling.classList.toggle('open')"><div><span class="drv-name">${name}</span> ${tags}</div><span class="drv-meta">${rows.length} serviço${rows.length>1?'s':''}</span></div><div class="drv-body"><table class="tbl" style="margin-top:6px"><thead><tr><th>Linha</th><th>Tipo</th><th>Turno</th><th>Chegada</th><th>Empresa</th><th>Prefixo</th></tr></thead><tbody>${rows.sort((a,b)=>(toMin(a.chegada)||0)-(toMin(b.chegada)||0)).map(r=>`<tr class="${rowCls(r)}"><td style="font-size:11px">${r.linha}</td><td>${typeBadge(r.tipo)}</td><td>${r.turno}</td><td><strong>${r.chegada}</strong></td><td>${r.empresa}</td><td>${r.prefixo}</td></tr>`).join('')}</tbody></table></div></div>`;
+  });
+  el.innerHTML=h||'<div class="empty">Sem dados</div>';
+}
+
+function renderVehicles(){
+  const el=document.getElementById('veh-list'); const map={};
+  DATA.forEach(r=>{const p=r.prefixo;if(!p||['ok','van','plantao','01 taxi',''].includes(p.toLowerCase()))return;if(!map[p])map[p]=[];map[p].push(r);});
+  let h='';
+  Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([p,rows])=>{
+    const hC=CONF.cars.some(c=>c.prefixo===p);
+    const hR=rows.length>1&&!hC;
+    const tags=(hC?`<span class="badge" style="background:var(--red-bg);color:var(--red-t)">⚡Duplicado</span> `:'')+(hR?`<span class="badge" style="background:var(--yel-bg);color:var(--yel-t)">Reutilizado</span>`:'');
+    h+=`<div class="drv-card" data-name="${p.toLowerCase()}"><div class="drv-head" onclick="this.nextElementSibling.classList.toggle('open')"><div><span class="drv-name">Prefixo ${p}</span> ${tags}</div><span class="drv-meta">${rows.length} uso${rows.length>1?'s':''}</span></div><div class="drv-body"><table class="tbl" style="margin-top:6px"><thead><tr><th>Motorista</th><th>Linha</th><th>Tipo</th><th>Chegada</th><th>Empresa</th></tr></thead><tbody>${rows.sort((a,b)=>(toMin(a.chegada)||0)-(toMin(b.chegada)||0)).map(r=>`<tr><td>${r.motorista}</td><td style="font-size:11px">${r.linha}</td><td>${typeBadge(r.tipo)}</td><td><strong>${r.chegada}</strong></td><td>${r.empresa}</td></tr>`).join('')}</tbody></table></div></div>`;
+  });
+  el.innerHTML=h||'<div class="empty">Sem dados</div>';
+}
+
+function filterList(id,v){ document.querySelectorAll('#'+id+' .drv-card').forEach(el=>el.style.display=el.dataset.name.includes(v.toLowerCase())?'':'none'); }
+
+// ── Generate next day ─────────────────────────────────────────────────────────
+function nextDayInfo(){
+  const fd = DATA.find(r=>r.data)?.data || '00/00/0000';
+  const [d,m,y] = fd.split('/').map(Number);
+  const nxt = new Date(y, m-1, d+1);
+  const nd = `${String(nxt.getDate()).padStart(2,'0')}/${String(nxt.getMonth()+1).padStart(2,'0')}/${nxt.getFullYear()}`;
+  const dn = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'][nxt.getDay()];
+  return {nd, dn};
+}
+
+function buildNextRows(nd, dn){
+  // Exclui linhas "Folga" do original; substitui motoristas que eram SUBSTITUIR; limpa obs de ativos
+  return DATA
+    .filter(r => !isFolga(r))
+    .map(r => ({
+      ...r,
+      dia: dn,
+      data: nd,
+      motorista: isOpen(r) ? 'SUBSTITUIR' : r.motorista,
+      obs: isOpen(r) ? r.obs : ''
+    }));
+}
+
+function openGenModal(){
+  if(!DATA.length){showModal('<h3>⚠ Sem dados</h3><p>Sincronize a planilha primeiro.</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>');return;}
+  const {nd, dn} = nextDayInfo();
+  const fNames = [...new Set(DATA.filter(isFolga).map(r=>r.motorista))].filter(Boolean);
+  const hasScript = !!CFG.url;
+
+  showModal(`<h3>📅 Gerar escala — ${dn}, ${nd}</h3>
+    <p>Uma nova aba chamada <strong>"${nd}"</strong> será criada dentro da mesma planilha, logo após a aba atual.</p>
+    <p>Regras aplicadas:</p>
+    <ul>
+      <li>Data atualizada para <strong>${nd}</strong></li>
+      <li>Todos os motoristas ativos mantidos</li>
+      <li>Motoristas em folga viram <span style="color:var(--red-t);font-weight:700">SUBSTITUIR</span> — linha aberta para preenchimento</li>
+      ${CONF.open.length ? `<li style="color:var(--yel-t)">⚠ ${CONF.open.length} linha(s) já abertas serão replicadas como abertas</li>` : ''}
+    </ul>
+    ${fNames.length ? `<p style="color:var(--yel-t)">Motoristas em folga: <strong>${fNames.join(', ')}</strong></p>` : ''}
+    ${!hasScript ? '<p style="color:var(--red-t)">⚠ URL do Apps Script não configurada — só será possível baixar CSV.</p>' : ''}
+    <div class="modal-actions">
+      ${hasScript ? `<button class="btn green" id="btn-gen-tab" onclick="genTab('${nd}','${dn}')">✓ Criar aba na planilha</button>` : ''}
+      <button class="btn outline" onclick="genCSV('${nd}','${dn}')">⬇ Baixar CSV</button>
+      <button class="btn outline" onclick="closeModal()">Cancelar</button>
+    </div>`);
+}
+
+async function genTab(nd, dn){
+  const btn = document.getElementById('btn-gen-tab');
+  if(btn){ btn.disabled=true; btn.textContent='Criando aba…'; }
+
+  const rows = buildNextRows(nd, dn);
+
+  // Build 2D array: header row + all data rows
+  const header = ['Dia','Data','Motorista','Obs','Linha','Tipo','Turno','Saída','Chegada','','','Empresa','Micro'];
+  const matrix = [header, ...rows.map(r=>[
+    r.dia, r.data, r.motorista, r.obs, r.linha, r.tipo,
+    r.turno, r.saida, r.chegada, '', '', r.empresa, r.prefixo
+  ])];
+
+  // Use POST — no URL length limit, supports full schedule (200+ rows)
+  try{
+    const res = await fetch(CFG.url, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' }, // text/plain avoids CORS preflight
+      body:    JSON.stringify({ tab: nd, srcTab: CFG.tab || 'Página1', rows: matrix })
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if(json.error) throw new Error(json.error);
+
+    closeModal();
+    setStatus('ok', 'Nova aba criada: ' + nd);
+    showModal(`<h3>✅ Aba criada na planilha!</h3>
+      <p>A aba <strong>"${nd}"</strong> foi criada com <strong>${rows.length} serviços</strong>.</p>
+      <p>Acesse diretamente na planilha para ver e editar. Após preencher os substitutos, sincronize o dashboard nessa aba em <strong>⚙ Configuração → Nome da aba</strong>.</p>
+      <div class="modal-actions">
+        <button class="btn green" onclick="switchTab('${nd}')">🔄 Sincronizar esta nova aba agora</button>
+        <button class="btn outline" onclick="closeModal()">Fechar</button>
+      </div>`);
+  } catch(e){
+    closeModal();
+    showModal(`<h3>❌ Erro ao criar aba</h3>
+      <p><strong>Detalhe:</strong> ${e.message}</p>
+      <p>Verifique se o Apps Script foi atualizado com o <strong>novo código</strong> (que inclui <code>doPost</code>) e republicado como <strong>Nova implantação</strong>.</p>
+      <div class="modal-actions">
+        <button class="btn outline" onclick="nav(document.querySelector('[data-panel=ajuda]'));closeModal()">Ver passo a passo</button>
+        <button class="btn outline" onclick="genCSV('${nd}','${dn}')">⬇ Baixar CSV mesmo assim</button>
+        <button class="btn outline" onclick="closeModal()">Fechar</button>
+      </div>`);
+  }
+}
+
+function switchTab(tabName){
+  closeModal();
+  CFG.tab = tabName;
+  localStorage.setItem('esc_cfg', JSON.stringify(CFG));
+  document.getElementById('cfg-tab').value = tabName;
+  syncData();
+}
+
+function genCSV(nd, dn){
+  const rows = buildNextRows(nd, dn);
+  const hdr = 'Dia,Data,Motorista,Obs,Linha,Tipo,Turno,Saída,Chegada,,,Empresa,Micro\n';
+  const body = rows.map(r=>[r.dia,r.data,r.motorista,r.obs,r.linha,r.tipo,r.turno,r.saida,r.chegada,'','',r.empresa,r.prefixo].join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+hdr+body],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `escala_${nd.replace(/\//g,'-')}.csv`;
+  a.click();
+  closeModal();
+  showModal(`<h3>✅ CSV baixado</h3>
+    <p>${rows.length} serviços para <strong>${dn}, ${nd}</strong>.</p>
+    <p>Para adicionar na planilha: <strong>Arquivo → Importar → Upload → Adicionar ao spreadsheet</strong>.</p>
+    <div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>`);
+}
+
+// ── Sample data ───────────────────────────────────────────────────────────────
+function loadSample(){
+  DATA=[
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Cunha',obs:'',linha:'Linha Shopee 501',tipo:'Saída',turno:'1º Turno',saida:'02:12',chegada:'02:12',empresa:'Shopee',prefixo:'7609'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Israel',obs:'',linha:'Linha Shopee 102',tipo:'Entrada',turno:'1º Turno',saida:'03:57',chegada:'05:00',empresa:'Shopee',prefixo:'7212'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Leal',obs:'',linha:'Linha Shopee 101',tipo:'Entrada',turno:'1º Turno',saida:'03:03',chegada:'05:00',empresa:'Shopee',prefixo:'7501'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Oliveira',obs:'Folga',linha:'Linha ENAEX 402 A',tipo:'Entrada',turno:'1º Turno',saida:'03:47',chegada:'05:00',empresa:'Enaex',prefixo:'7904'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'SUBSTITUIR',obs:'ABERTA - Oliveira em Folga',linha:'Linha ENAEX 402 A',tipo:'Entrada',turno:'1º Turno',saida:'03:47',chegada:'05:00',empresa:'Enaex',prefixo:'7904'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Cunha',obs:'',linha:'Linha JTEKT 108',tipo:'Entrada',turno:'1º Turno',saida:'04:36',chegada:'05:45',empresa:'JTEKT',prefixo:'7609'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Adam',obs:'',linha:'Linha JTEKT 101',tipo:'Entrada',turno:'1º Turno',saida:'04:26',chegada:'05:45',empresa:'JTEKT',prefixo:'7803'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Verneck',obs:'',linha:'Linha 101 - 6X2',tipo:'Entrada',turno:'1º Turno',saida:'04:17',chegada:'05:15',empresa:'Boticário',prefixo:'7805'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Adriano',obs:'',linha:'Linha 102 - 6X2',tipo:'Entrada',turno:'1º Turno',saida:'04:02',chegada:'05:15',empresa:'Boticário',prefixo:'7726'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Fabricio',obs:'',linha:'Linha Forvia SJP 101',tipo:'Entrada',turno:'1º Turno',saida:'03:27',chegada:'05:15',empresa:'Faurecia SJP',prefixo:'7709'},
+  ];
+  detect();renderAll();
+  document.getElementById('sb-date').textContent='Sexta Feira 12/06/2026';
+  document.getElementById('top-title').textContent='Escala — Sexta-feira, 12/06/2026';
+  document.getElementById('top-sub').textContent='(dados de exemplo — 10 registros)';
+  setStatus('ok','Dados de exemplo carregados');
+}
+
+// ── Nav / Modal ───────────────────────────────────────────────────────────────
+function nav(el){ document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active')); document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active')); el.classList.add('active'); document.getElementById('panel-'+el.dataset.panel).classList.add('active'); }
+function showModal(h){ document.getElementById('modal-inner').innerHTML=h; document.getElementById('modal').classList.add('open'); }
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
+
+function copyCode(){
+  const t=document.getElementById('gas-code').innerText;
+  navigator.clipboard.writeText(t).then(()=>{showModal('<h3>✅ Código copiado!</h3><p>Cole no editor do Google Apps Script.</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>');}).catch(()=>{});
+}
+
+// ── Open sheet helper ────────────────────────────────────────────────────────
+function openSheet(){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+  window.open(url, '_blank');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadCfg();
+if(CFG.url){ syncData(); }
+else { nav(document.querySelector('[data-panel="ajuda"]')); setStatus('idle','Configure o Apps Script para começar'); }
+</script>
+</body>
+</html>
