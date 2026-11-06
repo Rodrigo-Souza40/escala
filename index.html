@@ -226,11 +226,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span class="sdot idle" id="sdot"></span>
         <span id="stxt">Não sincronizado</span>
       </span>
+      <select class="cfg-inp" id="tab-sel" onchange="pickTab(this.value)" title="Aba (dia) exibida" style="width:auto;padding:5px 8px;font-size:12px"></select>
       <button class="btn outline sm" onclick="openSheet()">📊 Planilha</button>
       <button class="btn outline sm" id="btn-sync" onclick="syncData()">↻ Sincronizar</button>
     </div>
   </div>
 
+  <div id="diag" class="warn-box" style="display:none;margin:10px 20px 0"></div>
   <!-- KPIs -->
   <div style="padding:14px 20px 0">
     <div class="kpi-grid" id="kpi-area">
@@ -320,49 +322,72 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="step-title"><span class="step-num">2</span>Cole o código abaixo</div>
         <div class="step-body">
           Apague tudo e cole:
-          <div class="copy-block" id="gas-code">// ── LEITURA (GET) ─────────────────────────────────────────
+          <div class="copy-block" id="gas-code">// Planilha usada pelo sistema (o Web App só acessa esta planilha)
+var SHEET_ID = '1o9VJIUjNP1XOMRnB2ZCRaiDOUAsbCFQGkjk4VsY3j9k';
+
 function doGet(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!e || !e.parameter) {
-    return out({values: ss.getSheets()[0].getDataRange().getDisplayValues()});
+  var p = (e &amp;&amp; e.parameter) || {};
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  if (p.action === 'tabs') {
+    return out({tabs: ss.getSheets().map(function (s) { return s.getName(); })});
   }
-  var tabName = e.parameter.tab || ss.getSheets()[0].getName();
-  var s = ss.getSheetByName(tabName);
-  if (!s) return out({error: 'Aba nao encontrada: ' + tabName});
-  return out({values: s.getDataRange().getDisplayValues()});
+  var s = p.tab ? ss.getSheetByName(p.tab) : ss.getSheets()[0];
+  if (!s) return out({error: 'Aba não encontrada: ' + p.tab});
+  return out({tab: s.getName(), values: s.getDataRange().getDisplayValues()});
 }
 
-// ── CRIAÇÃO DE ABA (POST) ──────────────────────────────────
+// Cria a nova aba copiando a aba modelo (mesma formatação) e atualiza só Dia e Data.
+// Nunca altera nem apaga uma aba existente.
 function doPost(e) {
   try {
-    var ss      = SpreadsheetApp.getActiveSpreadsheet();
-    var payload = JSON.parse(e.postData.contents);
-    var tabName = payload.tab;
-    var srcTab  = payload.srcTab;
-    var matrix  = payload.rows;
-    if (!tabName || !matrix) return out({error: 'Faltam parametros'});
-    var s = ss.getSheetByName(tabName);
-    if (s) { s.clearContents(); }
-    else {
-      var src = srcTab ? ss.getSheetByName(srcTab) : null;
-      s = src ? src.copyTo(ss) : ss.insertSheet(tabName);
-      s.setName(tabName);
-      if (src) s.clearContents();
+    var p = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    if (ss.getSheetByName(p.newTab)) return out({error: 'Já existe a aba "' + p.newTab + '". Nada foi alterado.'});
+    var src = ss.getSheetByName(p.srcTab);
+    if (!src) return out({error: 'Aba modelo não encontrada: ' + p.srcTab});
+
+    var s = src.copyTo(ss);
+    s.setName(p.newTab);
+    var after = ss.getSheetByName(p.afterTab);
+    ss.setActiveSheet(s);
+    ss.moveActiveSheet(after ? after.getIndex() + 1 : ss.getNumSheets());
+
+    var last = s.getLastRow(), cols = s.getLastColumn();
+    var top = s.getRange(1, 1, Math.min(15, last), cols).getDisplayValues();
+    var hr = -1, cd = -1, cdt = -1;
+    for (var i = 0; i &lt; top.length &amp;&amp; hr &lt; 0; i++) {
+      if (top[i].some(function (v) { return String(v).trim().toLowerCase() === 'motorista'; })) hr = i;
     }
-    if (matrix.length > 0)
-      s.getRange(1, 1, matrix.length, matrix[0].length).setValues(matrix);
-    if (srcTab) {
-      var srcSheet = ss.getSheetByName(srcTab);
-      if (srcSheet) { ss.setActiveSheet(s); ss.moveActiveSheet(srcSheet.getIndex() + 1); }
+    if (hr &lt; 0) return out({ok: true, tab: p.newTab, rows: last, warn: 'Cabeçalho não encontrado: Dia/Data não foram atualizados.'});
+    top[hr].forEach(function (h, j) {
+      h = String(h).trim().toLowerCase();
+      if (h === 'dia') cd = j;
+      if (h === 'data') cdt = j;
+    });
+
+    var n = last - (hr + 1), q = p.date.split('-');
+    var dt = new Date(+q[0], +q[1] - 1, +q[2]), txt = q[2] + '/' + q[1] + '/' + q[0];
+    if (n &gt; 0) {
+      setCol_(s, hr + 2, n, cd, function () { return p.dia; });
+      setCol_(s, hr + 2, n, cdt, function (old) { return old instanceof Date ? dt : txt; });
     }
-    return out({ok: true, tab: tabName, rows: matrix.length});
-  } catch(err) { return out({error: err.message}); }
+    return out({ok: true, tab: p.newTab, rows: n});
+  } catch (err) {
+    return out({error: err.message});
+  }
 }
 
-function out(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}</div>
+function setCol_(s, row, n, col, fn) {
+  if (col &lt; 0) return;
+  var rg = s.getRange(row, col + 1, n, 1), v = rg.getValues(), f = rg.getFormulas();
+  for (var i = 0; i &lt; n; i++) if (!f[i][0] &amp;&amp; v[i][0] !== '') v[i][0] = fn(v[i][0]);
+  rg.setValues(v);
+}
+
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+</div>
           <button class="btn outline sm" onclick="copyGasCode()">📋 Copiar código</button>
         </div>
       </div>
@@ -395,7 +420,7 @@ function out(obj) {
 let DATA = [];   // parsed rows
 let CFG  = {};   // {url, tab}
 let CONF = { drivers:[], cars:[], folga:[], open:[] };
-const SHEET_ID = '1ulpc38PrlLSTgoPb7Gn7iagZb-BVSSwQ-BUL9zvSwsI';
+const SHEET_ID = '1o9VJIUjNP1XOMRnB2ZCRaiDOUAsbCFQGkjk4VsY3j9k';
 
 // ── Company definitions ───────────────────────────────────────────────────────
 const COMPANIES = [
@@ -509,28 +534,110 @@ function showCfgMsg(t,cls) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // SYNC
 // ═══════════════════════════════════════════════════════════════════════════════
+// ── Abas, detecção de colunas e geração da próxima escala ───────────────────
+let COL = {}, TABS = [];
+const TABRE = /^\s*(\d{2})-(\d{2})\s*-(\d{2})\s+\S/;
+const normTxt = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+async function loadTabs() {
+  if (!CFG.url) return;
+  try {
+    const j = await (await fetch(CFG.url + '?action=tabs')).json();
+    if (j.error) throw new Error(j.error);
+    TABS = (j.tabs || []).map(n => { const m = TABRE.exec(n); return m ? {name: n, date: new Date(2000 + +m[3], +m[2] - 1, +m[1])} : null; })
+      .filter(Boolean).sort((a, b) => a.date - b.date);
+    const sel = document.getElementById('tab-sel');
+    if (sel) { sel.innerHTML = TABS.slice().reverse().map(t => `<option value="${t.name}">${t.name}</option>`).join(''); if (CFG.tab) sel.value = CFG.tab; }
+  } catch (e) { console.warn('[Escala] abas:', e.message); }
+}
+function defaultTab() { const t = new Date(); t.setHours(0, 0, 0, 0); return (TABS.find(x => +x.date === +t) || TABS[TABS.length - 1]).name; }
+async function resolveTab() {
+  if (!TABS.length) await loadTabs();
+  if (TABS.length && !TABS.some(t => t.name === CFG.tab)) {
+    CFG.tab = defaultTab(); localStorage.setItem('esc_cfg', JSON.stringify(CFG));
+    const sel = document.getElementById('tab-sel'); if (sel) sel.value = CFG.tab;
+  }
+}
+function pickTab(v) {
+  CFG.tab = v; localStorage.setItem('esc_cfg', JSON.stringify(CFG));
+  const i = document.getElementById('cfg-tab'); if (i) i.value = v;
+  syncData();
+}
+
+// Cabeçalho por nome; colunas sem cabeçalho por posição; Empresa por conteúdo se o cabeçalho falhar
+function detectCols(rows) {
+  const hi = rows.slice(0, 15).findIndex(r => r.some(v => normTxt(v) === 'motorista'));
+  const hdr = hi >= 0 ? rows[hi].map(normTxt) : [];
+  const A = {dia:['dia'], data:['data'], motorista:['motorista','motoristas'], obs:['obs','observacao'], linha:['linha','rota'],
+             tipo:['tipo'], turno:['turno'], saida:['saida'], chegada:['hor','chegada','horario'],
+             empresa:['empresa','cliente'], prefixo:['micro','prefixo','veiculo','carro']};
+  const C = {};
+  for (const k in A) { const i = hdr.findIndex(h => A[k].includes(h)); if (i >= 0) C[k] = i; }
+  if (C.obs == null && C.motorista != null && !hdr[C.motorista + 1]) C.obs = C.motorista + 1;
+  if (C.saida == null && C.turno != null && !hdr[C.turno + 1]) C.saida = C.turno + 1;
+  const body = rows.slice(hi + 1, hi + 400);
+  if (C.empresa == null || !body.some(r => empKey(r[C.empresa]) !== 'outros')) {
+    let best = -1, bc = 0;
+    for (let c = 0; c < (rows[0] || []).length; c++) { const n = body.filter(r => empKey(r[c]) !== 'outros').length; if (n > bc) { bc = n; best = c; } }
+    if (best >= 0) C.empresa = best;
+  }
+  if (C.prefixo == null && C.empresa != null) C.prefixo = C.empresa + 1;
+  const D = {dia:0, data:1, motorista:2, obs:3, linha:4, tipo:5, turno:6, saida:7, chegada:8, empresa:9, prefixo:10};
+  for (const k in D) if (C[k] == null) C[k] = D[k];
+  return {COL: C, start: hi + 1};
+}
+
+function showDiag() {
+  const el = document.getElementById('diag'); if (!el) return;
+  const unk = DATA.filter(r => empKey(r.empresa) === 'outros');
+  if (!unk.length) { el.style.display = 'none'; return; }
+  const vals = [...new Set(unk.map(r => r.empresa || '(vazio)'))].slice(0, 6).join(', ');
+  el.style.display = 'block';
+  el.innerHTML = `⚠ ${unk.length} de ${DATA.length} serviços sem empresa reconhecida: <strong>${vals}</strong> (coluna lida: ${COL.empresa + 1})`;
+}
+
+// Próxima aba = dia seguinte à última aba diária; modelo = mesmo dia da semana mais recente
+function planNext() {
+  if (!TABS.length) return null;
+  const last = TABS[TABS.length - 1], nd = new Date(last.date); nd.setDate(nd.getDate() + 1);
+  const w = nd.getDay(), p2 = n => String(n).padStart(2, '0');
+  const prev = TABS.slice().reverse().find(t => t.date.getDay() === w && t.date < nd) || last;
+  const WD = ['DOMINGO','SEGUNDA FEIRA','TERÇA FEIRA','QUARTA FEIRA','QUINTA FEIRA','SEXTA FEIRA','SABADO'];
+  const DN = ['Domingo','Segunda Feira','Terça Feira','Quarta Feira','Quinta Feira','Sexta Feira','Sábado'];
+  const dd = p2(nd.getDate()), mm = p2(nd.getMonth() + 1), yy = nd.getFullYear();
+  return {last, prev, name: `${dd}-${mm}-${String(yy).slice(2)} ${WD[w]}`, dia: DN[w], iso: `${yy}-${mm}-${dd}`, label: `${dd}/${mm}/${yy}`};
+}
+
 async function syncData() {
   if (!CFG.url) { setStatus('idle','Configure o Apps Script primeiro'); nav(document.querySelector('[data-panel="ajuda"]')); return; }
   setStatus('spin','Sincronizando…');
   document.getElementById('btn-sync').disabled=true;
 
   try {
-    const res  = await fetch(CFG.url+'?tab='+encodeURIComponent(CFG.tab||'Página1'));
+    await resolveTab();
+    const res  = await fetch(CFG.url+'?tab='+encodeURIComponent(CFG.tab||''));
     if (!res.ok) throw new Error('HTTP '+res.status);
     const json = await res.json();
     if (json.error) throw new Error(json.error);
 
     const rows = json.values||[];
-    let start=0;
-    if (rows.length && cel(rows[0],2).toLowerCase().includes('motorista')) start=1;
+    // ── Dynamic column detection ─────────────────────────────────────────────────
+    // Reads the actual header row to find each column index.
+    // This makes the dashboard work regardless of sheet layout variations.
+    const det = detectCols(rows); COL = det.COL; const start = det.start;
 
     DATA = rows.slice(start).map(r=>({
-      dia:      cel(r,0),  data:     cel(r,1),
-      motorista:cel(r,2),  obs:      cel(r,3),
-      linha:    cel(r,4),  tipo:     cel(r,5),
-      turno:    cel(r,6),  saida:    celT(r,7),
-      chegada:  celT(r,8), empresa:  cel(r,11),
-      prefixo:  cel(r,12),
+      dia:      cel(r, COL.dia),
+      data:     cel(r, COL.data),
+      motorista:cel(r, COL.motorista),
+      obs:      cel(r, COL.obs),
+      linha:    cel(r, COL.linha),
+      tipo:     cel(r, COL.tipo),
+      turno:    cel(r, COL.turno),
+      saida:    celT(r, COL.saida),
+      chegada:  celT(r, COL.chegada),
+      empresa:  cel(r, COL.empresa),
+      prefixo:  cel(r, COL.prefixo),
     })).filter(r=>r.motorista&&r.motorista!==','&&r.linha);
 
     const d=DATA.find(r=>r.data)?.data||'—';
@@ -540,6 +647,16 @@ async function syncData() {
     document.getElementById('top-title').textContent='Escala — '+dy+', '+d;
     document.getElementById('top-sub').textContent=DATA.length+' serviços · aba "'+CFG.tab+'"';
     detect();
+
+    // DEBUG: log first 10 empresa values to console
+    console.log('=== DEBUG empresa values (first 10) ===');
+    DATA.slice(0,10).forEach((r,i) => {
+      console.log(i, JSON.stringify({empresa: r.empresa, key: empKey(r.empresa), linha: r.linha}));
+    });
+    const empCounts = {};
+    DATA.forEach(r => { const k=empKey(r.empresa); empCounts[k]=(empCounts[k]||0)+1; });
+    console.log('=== empKey distribution ===', empCounts);
+
     renderAll();
   } catch(e) {
     setStatus('err','Erro: '+e.message);
@@ -635,7 +752,7 @@ function detect() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // RENDER ALL
 // ═══════════════════════════════════════════════════════════════════════════════
-function renderAll() {
+function renderAll() { showDiag();
   renderAlerts();
   renderResumo();
   renderTimeline();
@@ -964,62 +1081,38 @@ function buildNextRows(nd,dn) {
 }
 
 function openGenModal() {
-  if (!DATA.length) { showModal('<h3>⚠ Sem dados</h3><p>Sincronize a planilha primeiro.</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>'); return; }
-  const {nd,dn}=nextDayInfo();
-  const fNames=[...new Set(DATA.filter(isFolga).map(r=>r.motorista))].filter(Boolean);
-  const rows=buildNextRows(nd,dn);
-  const opens=rows.filter(isOpen).length;
-
-  showModal(`<h3>📅 Gerar escala — ${dn}, ${nd}</h3>
-    <p>Uma nova aba <strong>"${nd}"</strong> será criada na mesma planilha, logo após a aba atual.</p>
-    <p><strong>${rows.length} serviços</strong> serão copiados com as seguintes regras:</p>
-    <ul>
-      <li>Data atualizada para <strong>${nd}</strong></li>
-      <li>Motoristas ativos mantidos</li>
-      <li>Folgas viram <span style="color:var(--red);font-weight:700">SUBSTITUIR</span> — linha aberta</li>
-    </ul>
-    ${fNames.length?`<div class="warn-box">Motoristas em folga que gerarão linhas abertas:<br><strong>${fNames.join(', ')}</strong></div>`:''}
-    ${opens>0?`<div class="warn-box">⚠ Já há ${opens} linha(s) abertas que serão replicadas como abertas.</div>`:''}
+  if (!CFG.url) { showModal('<h3>⚠ Configure o Apps Script</h3><p>Cole a URL do Web App em Configuração.</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>'); return; }
+  const p = planNext();
+  if (!p) { showModal('<h3>⚠ Abas não carregadas</h3><p>Clique em Sincronizar e tente de novo. Se persistir, o Apps Script ainda é a versão antiga.</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>'); return; }
+  showModal(`<h3>📅 Gerar escala — ${p.dia}, ${p.label}</h3>
+    <p>Será criada a aba <strong>"${p.name}"</strong>, copiada de <strong>"${p.prev.name}"</strong> (mesmo dia da semana), com a mesma formatação. Só as colunas Dia e Data são atualizadas.</p>
+    <div class="warn-box">Nenhuma aba existente é alterada. Se já houver uma aba com esse nome, nada é feito.</div>
     <div class="modal-actions">
-      ${CFG.url?`<button class="btn green" id="btn-gen-tab" onclick="genTab('${nd}','${dn}')">✓ Criar aba na planilha</button>`:''}
-      <button class="btn outline" onclick="genCSV('${nd}','${dn}')">⬇ Baixar CSV</button>
+      <button class="btn green" id="btn-gen-tab" onclick="genTab()">✓ Criar aba na planilha</button>
       <button class="btn outline" onclick="closeModal()">Cancelar</button>
     </div>`);
 }
 
-async function genTab(nd,dn) {
-  const btn=document.getElementById('btn-gen-tab');
-  if (btn) { btn.disabled=true; btn.textContent='Criando aba…'; }
-  const rows=buildNextRows(nd,dn);
-  const header=['Dia','Data','Motorista','Obs','Linha','Tipo','Turno','Saída','Chegada','','','Empresa','Micro'];
-  const matrix=[header,...rows.map(r=>[r.dia,r.data,r.motorista,r.obs,r.linha,r.tipo,r.turno,r.saida,r.chegada,'','',r.empresa,r.prefixo])];
+async function genTab() {
+  const p = planNext(), btn = document.getElementById('btn-gen-tab');
+  if (btn) { btn.disabled = true; btn.textContent = 'Criando aba…'; }
   try {
-    const res=await fetch(CFG.url,{
-      method:'POST',
-      headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({tab:nd,srcTab:CFG.tab||'Página1',rows:matrix})
-    });
-    if (!res.ok) throw new Error('HTTP '+res.status);
-    const json=await res.json();
+    const res = await fetch(CFG.url, {method: 'POST', headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({srcTab: p.prev.name, newTab: p.name, afterTab: p.last.name, date: p.iso, dia: p.dia})});
+    const json = await res.json();
     if (json.error) throw new Error(json.error);
     closeModal();
-    setStatus('ok','Nova aba criada: '+nd);
-    showModal(`<h3>✅ Aba "${nd}" criada!</h3>
-      <p><strong>${rows.length} serviços</strong> exportados para <strong>${dn}, ${nd}</strong>.</p>
-      <p>Acesse a planilha para ver e preencher os substitutos das linhas abertas.</p>
+    setStatus('ok', 'Nova aba criada: ' + p.name);
+    showModal(`<h3>✅ Aba "${p.name}" criada</h3>
+      <p>Copiada de "${p.prev.name}" (${json.rows} linhas). ${json.warn || ''}</p>
       <div class="modal-actions">
-        <button class="btn green" onclick="switchTab('${nd}')">🔄 Sincronizar esta aba agora</button>
+        <button class="btn green" onclick="switchTab('${p.name}')">🔄 Abrir esta aba no dashboard</button>
         <button class="btn outline" onclick="closeModal()">Fechar</button>
       </div>`);
-  } catch(e) {
+    loadTabs();
+  } catch (e) {
     closeModal();
-    showModal(`<h3>❌ Erro ao criar aba</h3>
-      <p><strong>Detalhe:</strong> ${e.message}</p>
-      <p>Verifique se o Apps Script foi atualizado com o novo código (com <code>doPost</code>) e republicado como <strong>Nova implantação</strong>.</p>
-      <div class="modal-actions">
-        <button class="btn outline" onclick="genCSV('${nd}','${dn}')">⬇ Baixar CSV mesmo assim</button>
-        <button class="btn outline" onclick="closeModal()">Fechar</button>
-      </div>`);
+    showModal(`<h3>❌ Erro ao criar aba</h3><p>${e.message}</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>`);
   }
 }
 
@@ -1032,8 +1125,8 @@ function switchTab(tabName) {
 
 function genCSV(nd,dn) {
   const rows=buildNextRows(nd,dn);
-  const hdr='Dia,Data,Motorista,Obs,Linha,Tipo,Turno,Saída,Chegada,,,Empresa,Micro\n';
-  const body=rows.map(r=>[r.dia,r.data,r.motorista,r.obs,r.linha,r.tipo,r.turno,r.saida,r.chegada,'','',r.empresa,r.prefixo].join(',')).join('\n');
+  const hdr='Dia,Data,Motorista,Obs,Linha,Tipo,Turno,Saída,HOR,Empresa,Micro\n';
+  const body=rows.map(r=>[r.dia,r.data,r.motorista,r.obs,r.linha,r.tipo,r.turno,r.saida,r.chegada,r.empresa,r.prefixo].join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+hdr+body],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=`escala_${nd.replace(/\//g,'-')}.csv`; a.click();
