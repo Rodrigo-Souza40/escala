@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Sistema de controle de escala de motoristas">
+<meta name="theme-color" content="#1a1a18">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Escala">
+<title>Escala Motoristas — Controle Operacional</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+  --bg:#f4f3ef;--bg2:#ffffff;--bg3:#eeede9;--bg4:#e5e4e0;
+  --text:#181816;--text2:#55544f;--text3:#8a8984;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.15);
+  --red:#c0392b;--red-bg:#fdf0ee;--red-bd:rgba(192,57,43,.2);
+  --yel:#8a6000;--yel-bg:#fdf7ee;--yel-bd:rgba(138,96,0,.22);
+  --grn:#1a6e38;--grn-bg:#eef6f0;--grn-bd:rgba(26,110,56,.2);
+  --blu:#1a3d9b;--blu-bg:#eef2fb;--blu-bd:rgba(26,61,155,.2);
+  --r:10px;--rs:6px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1a1a18;--bg2:#242422;--bg3:#2e2e2c;--bg4:#383836;
+  --text:#e8e8e4;--text2:#9a9a94;--text3:#6a6a64;
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.13);
+  --red:#f4856a;--red-bg:#2e1614;--red-bd:rgba(244,133,106,.2);
+  --yel:#e4a830;--yel-bg:#2a2010;--yel-bd:rgba(228,168,48,.2);
+  --grn:#4ec877;--grn-bg:#102216;--grn-bd:rgba(78,200,119,.2);
+  --blu:#6ea0f4;--blu-bg:#101828;--blu-bd:rgba(110,160,244,.2);
+}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
+/* ── Layout ── */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:224px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb-logo{padding:16px 14px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sb-logo-t{font-size:13px;font-weight:700;letter-spacing:.01em}
+.sb-logo-s{font-size:11px;color:var(--text3);margin-top:2px}
+.sb-section{font-size:10px;font-weight:700;letter-spacing:.09em;color:var(--text3);padding:12px 14px 3px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:7px;padding:7px 14px;font-size:12.5px;cursor:pointer;color:var(--text2);border-left:2.5px solid transparent;transition:all .1s;user-select:none}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--bg3);color:var(--text);font-weight:600;border-left-color:var(--text)}
+.nav-badge{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;min-width:18px;text-align:center;background:var(--red-bg);color:var(--red)}
+.nav-badge.ok{background:var(--grn-bg);color:var(--grn)}
+.nav-badge.yel{background:var(--yel-bg);color:var(--yel)}
+.sb-bottom{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;gap:10px;flex-wrap:wrap}
+.topbar-title{font-size:15px;font-weight:700}
+.topbar-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.content{flex:1;padding:18px 20px}
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;border-radius:var(--rs);border:1px solid var(--border2);background:var(--text);color:var(--bg);transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.82}.btn:active{transform:scale(.98)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.outline{background:transparent;color:var(--text)}
+.btn.sm{padding:5px 10px;font-size:11.5px}
+.btn.green{background:var(--grn);border-color:var(--grn);color:#fff}
+.btn.red{background:var(--red);border-color:var(--red);color:#fff}
+/* ── Status dot ── */
+.sdot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.sdot.ok{background:var(--grn)}.sdot.err{background:var(--red)}.sdot.idle{background:var(--text3)}
+.sdot.spin{background:#f59e0b;animation:blink .7s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+/* ── KPI ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:18px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;cursor:default}
+.kpi-val{font-size:26px;font-weight:700;line-height:1.1}
+.kpi-lab{font-size:11px;color:var(--text3);margin-top:2px}
+.kpi.red{border-color:var(--red-bd);background:var(--red-bg)}.kpi.red .kpi-val{color:var(--red)}
+.kpi.yel{border-color:var(--yel-bd);background:var(--yel-bg)}.kpi.yel .kpi-val{color:var(--yel)}
+.kpi.grn{border-color:var(--grn-bd);background:var(--grn-bg)}.kpi.grn .kpi-val{color:var(--grn)}
+/* ── Alert cards ── */
+.alert-card{border-radius:var(--r);margin-bottom:8px;border:1px solid var(--red-bd);background:var(--red-bg);overflow:hidden}
+.alert-card.warn{background:var(--yel-bg);border-color:var(--yel-bd)}
+.alert-card.info{background:var(--blu-bg);border-color:var(--blu-bd)}
+.alert-head{display:flex;align-items:center;padding:10px 14px;cursor:pointer;gap:8px}
+.alert-title{font-size:13px;font-weight:600;color:var(--red);flex:1}
+.alert-card.warn .alert-title{color:var(--yel)}
+.alert-card.info .alert-title{color:var(--blu)}
+.alert-count{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--bg2);border:1px solid var(--border);color:var(--text2);flex-shrink:0}
+.alert-chev{font-size:10px;color:var(--text3);transition:transform .2s;flex-shrink:0}
+.alert-body{display:none;padding:0 14px 12px;border-top:1px solid var(--red-bd)}
+.alert-card.warn .alert-body{border-top-color:var(--yel-bd)}
+.alert-body.open{display:block}
+.fix-note{font-size:12px;color:var(--text2);margin:8px 0 6px;line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:var(--rs)}
+/* ── Tables ── */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:6px 8px;font-size:10.5px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;letter-spacing:.02em;text-transform:uppercase}
+.tbl td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr.rr td{background:var(--red-bg);cursor:pointer}.tbl tr.ry td{background:var(--yel-bg);cursor:pointer}
+.tbl tr.rr:hover td,.tbl tr.ry:hover td{filter:brightness(.97)}
+.tbl-wrap{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600;white-space:nowrap;gap:3px}
+.badge.entrada{background:var(--grn-bg);color:var(--grn)}
+.badge.saida{background:var(--yel-bg);color:var(--yel)}
+.badge.interno{background:var(--blu-bg);color:var(--blu)}
+.badge.plantao,.badge.other{background:var(--bg3);color:var(--text2)}
+.badge.open{background:var(--red-bg);color:var(--red)}
+.badge.ok-badge{background:var(--grn-bg);color:var(--grn)}
+/* ── Section ── */
+.sec-title{font-size:13px;font-weight:700;margin:16px 0 10px;display:flex;align-items:center;gap:8px}
+.sec-sub{font-size:11px;font-weight:400;color:var(--text3)}
+.turno-header{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:10px 0 5px;margin-top:8px}
+/* ── Client tabs ── */
+.client-tab-bar{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.ctab{padding:5px 12px;font-size:12px;border-radius:99px;border:1px solid var(--border2);cursor:pointer;background:transparent;color:var(--text2);font-weight:500;transition:all .12s}
+.ctab:hover{background:var(--bg3)}.ctab.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+/* ── Search ── */
+.search-wrap{position:relative;margin-bottom:12px}
+.search-wrap input{width:100%;padding:8px 10px 8px 32px;font-size:13px;border:1px solid var(--border2);border-radius:var(--rs);background:var(--bg3);color:var(--text)}
+.search-wrap input:focus{outline:none;border-color:var(--text)}
+.s-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px}
+/* ── Accordion (drivers/vehicles) ── */
+.acc-item{border-bottom:1px solid var(--border);padding:7px 0}
+.acc-head{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.acc-name{font-size:13px;font-weight:600}
+.acc-meta{font-size:11px;color:var(--text3);margin-left:auto}
+.acc-body{display:none;margin-top:8px}.acc-body.open{display:block}
+/* ── Config ── */
+.cfg-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.cfg-box h3{font-size:13px;font-weight:700;margin-bottom:12px}
+.cfg-lbl{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:4px}
+.cfg-inp{width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border2);border-radius:var(--rs);background:var(--bg3);color:var(--text);margin-bottom:4px}
+.cfg-inp:focus{outline:none;border-color:var(--text)}
+.cfg-hint{font-size:11px;color:var(--text3);margin-bottom:12px}
+.cfg-msg{font-size:12px;margin-top:8px;padding:8px 10px;border-radius:var(--rs);display:none}
+.cfg-msg.ok{display:block;background:var(--grn-bg);color:var(--grn)}
+.cfg-msg.err{display:block;background:var(--red-bg);color:var(--red)}
+/* ── Info boxes ── */
+.warn-box{background:var(--yel-bg);border:1px solid var(--yel-bd);border-radius:var(--rs);padding:10px 12px;font-size:12px;color:var(--yel);margin:8px 0}
+.ok-box{background:var(--grn-bg);border:1px solid var(--grn-bd);border-radius:var(--rs);padding:10px 12px;font-size:12px;color:var(--grn);margin:8px 0}
+.info-box{background:var(--blu-bg);border:1px solid var(--blu-bd);border-radius:var(--rs);padding:10px 12px;font-size:12px;color:var(--blu);margin:8px 0}
+/* ── Step boxes (help) ── */
+.step-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.step-num{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;align-items:center;justify-content:center;margin-right:7px;flex-shrink:0}
+.step-title{font-size:13px;font-weight:700;display:flex;align-items:center;margin-bottom:8px}
+.step-body{font-size:12px;color:var(--text2);line-height:1.75;margin-left:29px}
+.step-body code{background:var(--bg3);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:11px}
+.copy-block{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);padding:10px 12px;font-size:11px;font-family:monospace;white-space:pre-wrap;word-break:break-all;margin:6px 0 8px}
+/* ── Modal ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:center;justify-content:center;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg2);border-radius:var(--r);padding:20px 22px;max-width:560px;width:100%;border:1px solid var(--border2);max-height:88vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:10px}
+.modal p,.modal li{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:5px}
+.modal ul,.modal ol{padding-left:18px;margin-bottom:10px}
+.modal-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.modal-field{background:var(--red-bg);border:1px solid var(--red-bd);border-radius:var(--rs);padding:10px 12px;margin:10px 0}
+.modal-field.warn{background:var(--yel-bg);border-color:var(--yel-bd)}
+.modal-field strong{color:var(--red);font-size:12px}
+.modal-field.warn strong{color:var(--yel)}
+.modal-field p{font-size:12px;margin-bottom:0}
+/* ── Timeline ── */
+.tl-row{margin-bottom:12px}
+.tl-lbl{font-size:12px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.tl-bar{position:relative;height:26px;background:var(--bg3);border-radius:5px;overflow:hidden}
+.tl-dot{position:absolute;height:20px;top:3px;border-radius:3px;cursor:pointer;opacity:.85;transition:opacity .1s}
+.tl-dot:hover{opacity:1}
+.tl-hr-line{position:absolute;top:0;width:1px;height:100%;background:var(--border2);pointer-events:none}
+.tl-hrs{display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px;padding:0 1px}
+/* ── Panel / empty ── */
+.panel{display:none}.panel.active{display:block}
+.empty{padding:32px 20px;text-align:center;color:var(--text3);font-size:13px}
+.empty-ico{font-size:28px;margin-bottom:8px}
+/* ── Conflict tag ── */
+.conf-tag{display:inline-flex;align-items:center;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;margin-left:4px}
+.conf-tag.red{background:var(--red-bg);color:var(--red)}
+.conf-tag.yel{background:var(--yel-bg);color:var(--yel)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── SIDEBAR ───────────────────────────────────────────────────────────── -->
+<div class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-t">🚌 Escala Operacional</div>
+    <div class="sb-logo-s" id="sb-date">Aguardando sincronização</div>
+  </div>
+
+  <div class="sb-section">Dashboard</div>
+  <div class="nav-item active" data-panel="alertas" onclick="nav(this)">⚠ Alertas <span class="nav-badge" id="bdg-alertas">—</span></div>
+  <div class="nav-item" data-panel="resumo" onclick="nav(this)">📊 Resumo geral</div>
+  <div class="nav-item" data-panel="timeline" onclick="nav(this)">📅 Linha do tempo</div>
+  <div class="nav-item" data-panel="subs" onclick="nav(this)">🔁 Substituições <span class="nav-badge ok" id="bdg-subs">—</span></div>
+
+  <div class="sb-section">Por empresa</div>
+  <div class="nav-item" data-panel="shopee" onclick="nav(this)">🟠 Shopee <span class="nav-badge ok" id="bdg-shopee">—</span></div>
+  <div class="nav-item" data-panel="boticario" onclick="nav(this)">🟣 Boticário <span class="nav-badge ok" id="bdg-boticario">—</span></div>
+  <div class="nav-item" data-panel="boticario-cgs" onclick="nav(this)">🟣 Boticário CGS <span class="nav-badge ok" id="bdg-boticario-cgs">—</span></div>
+  <div class="nav-item" data-panel="boticario-hub" onclick="nav(this)">🟣 Boticário HUB <span class="nav-badge ok" id="bdg-boticario-hub">—</span></div>
+  <div class="nav-item" data-panel="enaex" onclick="nav(this)">🔵 Enaex <span class="nav-badge ok" id="bdg-enaex">—</span></div>
+  <div class="nav-item" data-panel="faurecia-sjp" onclick="nav(this)">🟡 Faurecia SJP <span class="nav-badge ok" id="bdg-faurecia-sjp">—</span></div>
+  <div class="nav-item" data-panel="faurecia-4b" onclick="nav(this)">🟡 Faurecia 4B <span class="nav-badge ok" id="bdg-faurecia-4b">—</span></div>
+  <div class="nav-item" data-panel="jtekt" onclick="nav(this)">🟢 JTEKT <span class="nav-badge ok" id="bdg-jtekt">—</span></div>
+  <div class="nav-item" data-panel="garagem" onclick="nav(this)">🔧 Garagem <span class="nav-badge ok" id="bdg-garagem">—</span></div>
+  <div class="nav-item" data-panel="reserva" onclick="nav(this)">📍 Reserva no Posto <span class="nav-badge ok" id="bdg-reserva">—</span></div>
+
+  <div class="sb-section">Motoristas e Veículos</div>
+  <div class="nav-item" data-panel="motoristas" onclick="nav(this)">👤 Motoristas</div>
+  <div class="nav-item" data-panel="veiculos" onclick="nav(this)">🚐 Prefixos</div>
+
+  <div class="sb-section">Sistema</div>
+  <div class="nav-item" data-panel="config" onclick="nav(this)">⚙ Configuração</div>
+  <div class="nav-item" data-panel="ajuda" onclick="nav(this)">📖 Como configurar</div>
+
+  <div class="sb-bottom">
+    <button class="btn green" style="width:100%;justify-content:center" onclick="openGenModal()">+ Gerar próxima escala</button>
+  <div id="ver-tag" style="font-size:10px;color:var(--text3);margin-top:6px;text-align:center">HTML v3</div>
+  </div>
+</div>
+
+<!-- ── MAIN ──────────────────────────────────────────────────────────────── -->
+<div class="main">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="top-title">Sistema de Escala de Motoristas</div>
+      <div class="topbar-sub" id="top-sub">Configure o Apps Script e sincronize</div>
+    </div>
+    <div class="topbar-right">
+      <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2)">
+        <span class="sdot idle" id="sdot"></span>
+        <span id="stxt">Não sincronizado</span>
+      </span>
+      <select class="cfg-inp" id="tab-sel" onchange="pickTab(this.value)" title="Aba (dia) exibida" style="width:auto;padding:5px 8px;font-size:12px"></select>
+      <button class="btn outline sm" onclick="openSheet()">📊 Planilha</button>
+      <button class="btn outline sm" id="btn-sync" onclick="syncData()">↻ Sincronizar</button>
+    </div>
+  </div>
+
+  <div id="diag" class="warn-box" style="display:none;margin:10px 20px 0"></div>
+  <!-- KPIs -->
+  <div style="padding:14px 20px 0">
+    <div class="kpi-grid" id="kpi-area">
+      <div class="kpi"><div class="kpi-val" id="k-total">—</div><div class="kpi-lab">Total serviços</div></div>
+      <div class="kpi"><div class="kpi-val" id="k-mot">—</div><div class="kpi-lab">Motoristas</div></div>
+      <div class="kpi red"><div class="kpi-val" id="k-conf-drv">—</div><div class="kpi-lab">Conflitos horário</div></div>
+      <div class="kpi red"><div class="kpi-val" id="k-conf-car">—</div><div class="kpi-lab">Conflitos prefixo</div></div>
+      <div class="kpi yel"><div class="kpi-val" id="k-open">—</div><div class="kpi-lab">Linhas abertas</div></div>
+      <div class="kpi yel"><div class="kpi-val" id="k-folga">—</div><div class="kpi-lab">Em folga</div></div>
+    </div>
+  </div>
+
+  <!-- Panels -->
+  <div class="content">
+
+    <!-- ALERTAS -->
+    <div class="panel active" id="panel-alertas">
+      <div class="sec-title">⚠ Alertas e Divergências</div>
+      <div id="al-root"><div class="empty"><div class="empty-ico">⚙</div>Sincronize a planilha para ver os alertas</div></div>
+    </div>
+
+    <!-- RESUMO GERAL -->
+    <div class="panel" id="panel-resumo">
+      <div class="sec-title">📊 Resumo por empresa</div>
+      <div id="resumo-root"><div class="empty"><div class="empty-ico">📊</div>Sincronize para ver o resumo</div></div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="panel" id="panel-timeline">
+      <div class="sec-title">📅 Linha do tempo — distribuição de serviços</div>
+      <div id="tl-root"><div class="empty"><div class="empty-ico">📅</div>Sincronize para ver a linha do tempo</div></div>
+    </div>
+
+    <!-- SUBSTITUIÇÕES -->
+    <div class="panel" id="panel-subs">
+      <div class="sec-title">🔁 Substituições do dia — folguistas</div>
+      <div id="subs-root"><div class="empty">Sincronize para ver as substituições</div></div>
+    </div>
+
+    <!-- EMPRESA PANELS (one per company) -->
+    <div class="panel" id="panel-shopee"><div id="c-shopee"></div></div>
+    <div class="panel" id="panel-boticario"><div id="c-boticario"></div></div>
+    <div class="panel" id="panel-boticario-cgs"><div id="c-boticario-cgs"></div></div>
+    <div class="panel" id="panel-boticario-hub"><div id="c-boticario-hub"></div></div>
+    <div class="panel" id="panel-enaex"><div id="c-enaex"></div></div>
+    <div class="panel" id="panel-faurecia-sjp"><div id="c-faurecia-sjp"></div></div>
+    <div class="panel" id="panel-faurecia-4b"><div id="c-faurecia-4b"></div></div>
+    <div class="panel" id="panel-jtekt"><div id="c-jtekt"></div></div>
+    <div class="panel" id="panel-garagem"><div id="c-garagem"></div></div>
+    <div class="panel" id="panel-reserva"><div id="c-reserva"></div></div>
+
+    <!-- MOTORISTAS -->
+    <div class="panel" id="panel-motoristas">
+      <div class="sec-title">👤 Motoristas</div>
+      <div class="search-wrap"><span class="s-ico">🔍</span><input type="text" placeholder="Buscar motorista…" oninput="filterAcc('drv-root',this.value)"></div>
+      <div id="drv-root"><div class="empty"><div class="empty-ico">👤</div>Sincronize para ver os motoristas</div></div>
+    </div>
+
+    <!-- PREFIXOS -->
+    <div class="panel" id="panel-veiculos">
+      <div class="sec-title">🚐 Prefixos de veículos</div>
+      <div class="search-wrap"><span class="s-ico">🔍</span><input type="text" placeholder="Buscar prefixo…" oninput="filterAcc('veh-root',this.value)"></div>
+      <div id="veh-root"><div class="empty"><div class="empty-ico">🚐</div>Sincronize para ver os prefixos</div></div>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="panel" id="panel-config">
+      <div class="cfg-box">
+        <h3>⚙ Configuração do Apps Script</h3>
+        <div class="cfg-lbl">URL do Web App</div>
+        <input class="cfg-inp" id="cfg-url" placeholder="https://script.google.com/macros/s/…/exec">
+        <div class="cfg-hint">URL gerada ao publicar o Apps Script como Web App</div>
+        <div class="cfg-lbl">Nome da aba</div>
+        <input class="cfg-inp" id="cfg-tab" placeholder="Página1" value="Página1">
+        <div class="cfg-hint">Nome exato da aba (sensível a maiúsculas e acentos)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="saveConfig()">Salvar e sincronizar</button>
+          <button class="btn outline" onclick="loadSample()">Carregar exemplo</button>
+        </div>
+        <div class="cfg-msg" id="cfg-msg"></div>
+      </div>
+      <div class="warn-box">⚠ Não use API Key direta — causa erro de CORS ao abrir como arquivo local. O Apps Script proxy resolve isso.</div>
+    </div>
+
+    <!-- AJUDA -->
+    <div class="panel" id="panel-ajuda">
+      <div class="sec-title">📖 Como conectar — Passo a passo</div>
+      <div class="step-box">
+        <div class="step-title"><span class="step-num">1</span>Abra o Apps Script</div>
+        <div class="step-body">Na planilha → <strong>Extensões → Apps Script</strong></div>
+      </div>
+      <div class="step-box">
+        <div class="step-title"><span class="step-num">2</span>Cole o código abaixo</div>
+        <div class="step-body">
+          Apague tudo e cole:
+          <div class="copy-block" id="gas-code">// Planilha usada pelo sistema (o Web App só acessa esta planilha)
+var SHEET_ID = '1o9VJIUjNP1XOMRnB2ZCRaiDOUAsbCFQGkjk4VsY3j9k';
+var VERSION = 3;
+
+function doGet(e) {
+  var p = (e &amp;&amp; e.parameter) || {};
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  if (p.action === 'tabs') {
+    return out({ver: VERSION, tabs: ss.getSheets().map(function (s) { return s.getName(); })});
+  }
+  if (p.action === 'plan') {
+    var pl = readPlan_(ss, p.date);
+    if (!pl) return out({ver: VERSION, error: 'Plano 5x1 não encontrado para ' + p.date + ' (importe a planilha 5x1 como aba)'});
+    return out({ver: VERSION, tab: pl.tab, date: p.date, members: pl.members.map(function (m) {
+      return {g: m.g, role: m.role, key: m.key, short: m.short, st: m.days[p.date] || ''};
+    })});
+  }
+  var s = p.tab ? ss.getSheetByName(p.tab) : ss.getSheets()[0];
+  if (!s) return out({error: 'Aba não encontrada: ' + p.tab});
+  var vals = s.getDataRange().getDisplayValues();
+  // notas da coluna Motorista ("Titular: ..."), alinhadas às linhas de vals
+  var notes = [], h = findHeader_(vals);
+  if (h &amp;&amp; vals.length &gt; h.hr + 1) {
+    var nt = s.getRange(h.hr + 2, h.cm + 1, vals.length - h.hr - 1, 1).getNotes();
+    for (var i = 0; i &lt; vals.length; i++) notes.push(i &gt; h.hr ? nt[i - h.hr - 1][0] : '');
+  }
+  return out({ver: VERSION, tab: s.getName(), values: vals, notes: notes});
+}
+
+// Cria a nova aba copiando a aba modelo (mesma formatação), atualiza Dia e Data e aplica
+// os folguistas do plano 5x1. Nunca altera nem apaga uma aba existente.
+function doPost(e) {
+  try {
+    var p = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    if (ss.getSheetByName(p.newTab)) return out({error: 'Já existe a aba "' + p.newTab + '". Nada foi alterado.'});
+    var src = ss.getSheetByName(p.srcTab);
+    if (!src) return out({error: 'Aba modelo não encontrada: ' + p.srcTab});
+
+    var s = src.copyTo(ss);
+    s.setName(p.newTab);
+    var after = ss.getSheetByName(p.afterTab);
+    ss.setActiveSheet(s);
+    ss.moveActiveSheet(after ? after.getIndex() + 1 : ss.getNumSheets());
+
+    var last = s.getLastRow(), cols = s.getLastColumn();
+    var top = s.getRange(1, 1, Math.min(15, last), cols).getDisplayValues();
+    var h = findHeader_(top);
+    if (!h) return out({ok: true, tab: p.newTab, rows: last, warn: ['Cabeçalho não encontrado: nada foi atualizado.']});
+    var hdr = top[h.hr].map(function (x) { return String(x).trim().toLowerCase(); });
+    var cd = hdr.indexOf('dia'), cdt = hdr.indexOf('data'), cm = h.cm;
+    var co = hdr[cm + 1] === '' ? cm + 1 : -1;   // coluna Obs (sem cabeçalho) logo após Motorista
+
+    var n = last - (h.hr + 1), q = p.date.split('-');
+    var dt = new Date(+q[0], +q[1] - 1, +q[2]), txt = q[2] + '/' + q[1] + '/' + q[0];
+    var res = {ok: true, tab: p.newTab, rows: n, sub: 0, open: 0, warn: []};
+    if (n &gt; 0) {
+      setCol_(s, h.hr + 2, n, cd, function () { return p.dia; });
+      setCol_(s, h.hr + 2, n, cdt, function (old) { return old instanceof Date ? dt : txt; });
+      applyPlan_(ss, s, h.hr + 2, n, cm, co, p.date, res);
+    }
+    return out(res);
+  } catch (err) {
+    return out({error: err.message});
+  }
+}
+
+// Folguistas substituem quem está de folga no grupo. A célula guarda só quem trabalha;
+// a nota da célula registra o titular ("Titular: Fulano") para a próxima geração e para o dashboard.
+function applyPlan_(ss, s, row, n, cm, co, iso, res) {
+  var plan = readPlan_(ss, iso);
+  if (!plan) { res.warn.push('Plano 5x1 não encontrado para ' + iso + ' (importe a planilha 5x1 como aba). Nenhuma substituição aplicada.'); return; }
+  var grp = {};
+  plan.members.forEach(function (m) {
+    var g = grp[m.g] = grp[m.g] || {fix: [], fol: null};
+    if (m.role === 'folguista') g.fol = m; else g.fix.push(m);
+  });
+  var rg = s.getRange(row, cm + 1, n, 1), vals = rg.getValues(), notes = rg.getNotes();
+  var orng = co &gt;= 0 ? s.getRange(row, co + 1, n, 1) : null, obs = orng ? orng.getValues() : null;
+  var seen = {};
+  for (var i = 0; i &lt; n; i++) {
+    var cell = String(vals[i][0]).trim();
+    var mt = /Titular:\s*([^\n(]+)/.exec(notes[i][0] || ''), T = cell, legacy = false;
+    if (mt) T = mt[1].trim();
+    else if (cell.indexOf('/') &gt; 0 &amp;&amp; obs &amp;&amp; /folga/i.test(String(obs[i][0]))) { T = cell.split('/')[0].trim(); legacy = true; }
+    if (!T || T === 'SUBSTITUIR') continue;
+    if (legacy &amp;&amp; !match_(plan, T)) continue;   // titular fora do plano: mantém a linha como está
+    var r = resolve_(plan, grp, T, iso);
+    vals[i][0] = r.name;
+    if (r.titular) notes[i][0] = 'Titular: ' + r.titular + '\n' + (r.open ? 'Sem folguista disponível: linha aberta' : 'Folguista em campo (grupo ' + r.g + ')');
+    else if (mt) notes[i][0] = '';
+    if (obs) {
+      if (r.open) obs[i][0] = 'ABERTA - ' + r.titular + ' em Folga';
+      else if (legacy || /^\s*(folga|aberta.*)$/i.test(String(obs[i][0]))) obs[i][0] = '';
+    }
+    if (r.titular) { var k = r.titular + '|' + r.name; if (!seen[k]) { seen[k] = 1; if (r.open) res.open++; else res.sub++; } }
+  }
+  rg.setValues(vals); rg.setNotes(notes);
+  if (orng) orng.setValues(obs);
+  Object.keys(grp).forEach(function (g) {
+    grp[g].fix.forEach(function (m) {
+      if (!m.key &amp;&amp; m.days[iso] === 'F') res.warn.push('Grupo ' + g + ': há Fixo sem nome no plano de folga em ' + iso + '; esse posto não foi substituído.');
+    });
+  });
+}
+
+function resolve_(plan, grp, T, iso) {
+  var m = match_(plan, T);
+  if (!m || m.role !== 'fixo' || m.days[iso] !== 'F') return {name: T};
+  var f = grp[m.g] &amp;&amp; grp[m.g].fol;
+  if (f &amp;&amp; f.short &amp;&amp; f.days[iso] === 'T') return {name: f.short, titular: T, g: m.g};
+  return {name: 'SUBSTITUIR', titular: T, g: m.g, open: true};
+}
+
+function match_(plan, name) {
+  var k = nk_(name), hit = [];
+  if (!k) return null;
+  plan.members.forEach(function (m) {
+    if (m.key &amp;&amp; (m.key === k || m.key.indexOf(k + ' ') === 0 || k.indexOf(m.key + ' ') === 0)) hit.push(m);
+  });
+  return hit.length === 1 ? hit[0] : null;
+}
+
+function nk_(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Plano 5x1: aba cujo nome contém "5x1" e cujas datas cobrem a data pedida
+function readPlan_(ss, iso) {
+  var found = null;
+  ss.getSheets().forEach(function (sh) {
+    if (found || !/5\s*x\s*1/i.test(sh.getName())) return;
+    var pl = parsePlan_(sh);
+    if (pl.members.length &amp;&amp; pl.dates.indexOf(iso) &gt;= 0) found = pl;
+  });
+  return found;
+}
+
+function parsePlan_(s) {
+  var tz = s.getParent().getSpreadsheetTimeZone(), v = s.getDataRange().getValues();
+  var g = 0, cols = {}, members = [], dates = [];
+  for (var i = 0; i &lt; v.length; i++) {
+    var r = v[i], role = String(r[1]).trim().toLowerCase();
+    if (r[0] !== '' &amp;&amp; !isNaN(+r[0]) &amp;&amp; /escala/i.test(String(r[1]))) g = +r[0];
+    var ds = {}, nd = 0;
+    for (var j = 3; j &lt; r.length; j++) if (r[j] instanceof Date) { ds[j] = Utilities.formatDate(r[j], tz, 'yyyy-MM-dd'); nd++; }
+    if (nd &gt;= 10) { cols = ds; continue; }
+    if (role === 'fixo' || role === 'folguista') {
+      var days = {};
+      for (var c in cols) { var t = String(r[c]).trim().toUpperCase(); if (t === 'T' || t === 'F') days[cols[c]] = t; }
+      members.push({g: g, role: role, key: nk_(r[2]), days: days,
+        short: String(r[2]).replace(/[^A-Za-zÀ-ÿ\s]/g, ' ').replace(/\s+/g, ' ').trim()});
+    }
+  }
+  for (var c2 in cols) dates.push(cols[c2]);
+  return {tab: s.getName(), members: members, dates: dates};
+}
+
+function findHeader_(v) {
+  for (var i = 0; i &lt; Math.min(15, v.length); i++) {
+    for (var j = 0; j &lt; v[i].length; j++) {
+      if (String(v[i][j]).trim().toLowerCase() === 'motorista') return {hr: i, cm: j};
+    }
+  }
+  return null;
+}
+
+function setCol_(s, row, n, col, fn) {
+  if (col &lt; 0) return;
+  var rg = s.getRange(row, col + 1, n, 1), v = rg.getValues(), f = rg.getFormulas();
+  for (var i = 0; i &lt; n; i++) if (!f[i][0] &amp;&amp; v[i][0] !== '') v[i][0] = fn(v[i][0]);
+  rg.setValues(v);
+}
+
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+</div>
+          <button class="btn outline sm" onclick="copyGasCode()">📋 Copiar código</button>
+        </div>
+      </div>
+      <div class="step-box">
+        <div class="step-title"><span class="step-num">3</span>Publicar como Web App</div>
+        <div class="step-body">
+          <strong>Implantar → Nova implantação</strong><br>
+          Tipo: <strong>App da Web</strong> · Executar como: <strong>Eu</strong> · Acesso: <strong>Qualquer pessoa</strong><br>
+          Copie a URL e cole em <strong>⚙ Configuração</strong>.<br><br>
+          ⚠ Sempre que alterar o código use <strong>"Nova implantação"</strong> — nunca "Editar implantação".
+        </div>
+      </div>
+      <div class="ok-box">✓ Funciona de qualquer máquina, celular ou tablet sem necessidade de VPN ou servidor.</div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ── MODAL ──────────────────────────────────────────────────────────────── -->
+<div class="modal-bg" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal-inner"></div>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════════
+let DATA = [];   // parsed rows
+let CFG  = {};   // {url, tab}
+let CONF = { drivers:[], cars:[], folga:[], open:[] };
+const SHEET_ID = '1o9VJIUjNP1XOMRnB2ZCRaiDOUAsbCFQGkjk4VsY3j9k';
+
+// ── Company definitions ───────────────────────────────────────────────────────
+const COMPANIES = [
+  { key:'shopee',        label:'Shopee',          icon:'🟠', color:'#EE4D2D' },
+  { key:'boticario',     label:'Boticário',        icon:'🟣', color:'#9B59B6' },
+  { key:'boticario-cgs', label:'Boticário CGS',    icon:'🟣', color:'#7D3C98' },
+  { key:'boticario-hub', label:'Boticário HUB',    icon:'🟣', color:'#6C3483' },
+  { key:'enaex',         label:'Enaex',            icon:'🔵', color:'#1A73E8' },
+  { key:'faurecia-sjp',  label:'Faurecia SJP',     icon:'🟡', color:'#E67625' },
+  { key:'faurecia-4b',   label:'Faurecia 4B',      icon:'🟡', color:'#CA6F1E' },
+  { key:'jtekt',         label:'JTEKT',            icon:'🟢', color:'#0D7C34' },
+  { key:'garagem',       label:'Garagem',          icon:'🔧', color:'#666' },
+  { key:'reserva',       label:'Reserva no Posto', icon:'📍', color:'#888' },
+];
+
+// Map raw empresa string → company key (exact match first, then fallback)
+function empKey(emp) {
+  // Normalize: lowercase + remove accents for robust matching
+  const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  const e = norm(emp);
+
+  // Must check sub-variants BEFORE the generic parent (CGS/HUB before plain Boticario)
+  if (e.includes('boticario cgs') || e.includes('boticário cgs') || e.includes('bcgs')) return 'boticario-cgs';
+  if (e.includes('boticario hub') || e.includes('boticário hub'))                        return 'boticario-hub';
+  if (e.includes('boticario') || e.includes('boticário'))                                return 'boticario';
+
+  if (e.includes('faurecia sjp') || e.includes('forvia sjp'))  return 'faurecia-sjp';
+  if (e.includes('faurecia 4b')  || e.includes('forvia 4b'))   return 'faurecia-4b';
+  if (e.includes('faurecia')     || e.includes('forvia'))       return 'faurecia-sjp'; // fallback genérico
+
+  if (e.includes('jtekt'))   return 'jtekt';
+  if (e.includes('shopee'))  return 'shopee';
+  if (e.includes('enaex'))   return 'enaex';
+  if (e.includes('garagem')) return 'garagem';
+  if (e.includes('reserva')) return 'reserva';
+
+  return 'outros';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+const fmtTime = v => {
+  if (v===null||v===undefined||v==='') return '';
+  if (typeof v==='number') {
+    const tot = Math.round(v*24*60);
+    return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0');
+  }
+  const s = String(v).trim();
+  return /^\d{1,2}:\d{2}:\d{2}$/.test(s) ? s.slice(0,5) : s;
+};
+const cel  = (r,i) => String(r[i]!==undefined&&r[i]!==null ? r[i] : '').trim();
+const celT = (r,i) => { const v=r[i]; return (v===undefined||v===null||v==='') ? '' : fmtTime(v); };
+const toMin = t => {
+  if (!t) return null;
+  const s = typeof t==='number' ? fmtTime(t) : String(t).trim();
+  if (!s.includes(':')) return null;
+  const [h,m] = s.split(':').map(Number);
+  return isNaN(h)||isNaN(m) ? null : h*60+m;
+};
+
+const isFolga = r => r.obs.toLowerCase().includes('folga');
+const isOpen  = r => r.motorista.toUpperCase()==='SUBSTITUIR';
+const isSkipPrefixo = p => !p || ['ok','van','plantao','01 taxi','an',''].includes(p.toLowerCase().trim());
+
+function typeBadge(t) {
+  const k = (t||'').toLowerCase();
+  const cls = k==='entrada' ? 'entrada'
+    : (k.startsWith('saí')||k==='saida') ? 'saida'
+    : k==='interno' ? 'interno'
+    : (k==='plantão'||k==='plantao') ? 'plantao'
+    : 'other';
+  return `<span class="badge ${cls}">${t||'—'}</span>`;
+}
+
+function rowCls(r) {
+  if (isOpen(r)) return 'ry';
+  const dc = CONF.drivers.some(c=>c.motorista.toLowerCase()===r.motorista.toLowerCase());
+  const cc = !isSkipPrefixo(r.prefixo) && CONF.cars.some(c=>c.prefixo===r.prefixo);
+  return (dc||cc) ? 'rr' : isFolga(r) ? 'ry' : '';
+}
+
+function setStatus(s,msg) {
+  document.getElementById('sdot').className='sdot '+s;
+  document.getElementById('stxt').textContent=msg;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════════════════════
+function loadCfg() {
+  try { CFG=JSON.parse(localStorage.getItem('esc_cfg')||'{}'); } catch(e){ CFG={}; }
+  if (CFG.url) document.getElementById('cfg-url').value=CFG.url;
+  if (CFG.tab) document.getElementById('cfg-tab').value=CFG.tab;
+}
+function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  const tab = document.getElementById('cfg-tab').value.trim()||'Página1';
+  if (!url) { showCfgMsg('Cole a URL do Apps Script antes de salvar.','err'); return; }
+  CFG = {url, tab};
+  localStorage.setItem('esc_cfg', JSON.stringify(CFG));
+  showCfgMsg('Salvo. Sincronizando…','ok');
+  syncData();
+}
+function showCfgMsg(t,cls) {
+  const el=document.getElementById('cfg-msg');
+  el.textContent=t; el.className='cfg-msg '+cls;
+  setTimeout(()=>el.className='cfg-msg',3500);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SYNC
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── Abas, detecção de colunas e geração da próxima escala ───────────────────
+let COL = {}, TABS = [], PLAN = null, SCRIPT_VER = 0;
+const TABRE = /^\s*(\d{2})-(\d{2})\s*-(\d{2})\s+\S/;
+const normTxt = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+async function loadTabs() {
+  if (!CFG.url) return;
+  try {
+    const j = await (await fetch(CFG.url + '?action=tabs')).json();
+    if (j.error) throw new Error(j.error);
+    SCRIPT_VER = j.ver || 0; const vt = document.getElementById('ver-tag'); if (vt) vt.textContent = 'HTML v3 · Script v' + SCRIPT_VER;
+    TABS = (j.tabs || []).map(n => { const m = TABRE.exec(n); return m ? {name: n, date: new Date(2000 + +m[3], +m[2] - 1, +m[1])} : null; })
+      .filter(Boolean).sort((a, b) => a.date - b.date);
+    const sel = document.getElementById('tab-sel');
+    if (sel) { sel.innerHTML = TABS.slice().reverse().map(t => `<option value="${t.name}">${t.name}</option>`).join(''); if (CFG.tab) sel.value = CFG.tab; }
+  } catch (e) { console.warn('[Escala] abas:', e.message); }
+}
+function defaultTab() { const t = new Date(); t.setHours(0, 0, 0, 0); return (TABS.find(x => +x.date === +t) || TABS[TABS.length - 1]).name; }
+async function resolveTab() {
+  if (!TABS.length) await loadTabs();
+  if (TABS.length && !TABS.some(t => t.name === CFG.tab)) {
+    CFG.tab = defaultTab(); localStorage.setItem('esc_cfg', JSON.stringify(CFG));
+    const sel = document.getElementById('tab-sel'); if (sel) sel.value = CFG.tab;
+  }
+}
+function pickTab(v) {
+  CFG.tab = v; localStorage.setItem('esc_cfg', JSON.stringify(CFG));
+  const i = document.getElementById('cfg-tab'); if (i) i.value = v;
+  syncData();
+}
+
+// Cabeçalho por nome; colunas sem cabeçalho por posição; Empresa por conteúdo se o cabeçalho falhar
+function detectCols(rows) {
+  const hi = rows.slice(0, 15).findIndex(r => r.some(v => normTxt(v) === 'motorista'));
+  const hdr = hi >= 0 ? rows[hi].map(normTxt) : [];
+  const A = {dia:['dia'], data:['data'], motorista:['motorista','motoristas'], obs:['obs','observacao'], linha:['linha','rota'],
+             tipo:['tipo'], turno:['turno'], saida:['saida'], chegada:['hor','chegada','horario'],
+             empresa:['empresa','cliente'], prefixo:['micro','prefixo','veiculo','carro']};
+  const C = {};
+  for (const k in A) { const i = hdr.findIndex(h => A[k].includes(h)); if (i >= 0) C[k] = i; }
+  if (C.obs == null && C.motorista != null && !hdr[C.motorista + 1]) C.obs = C.motorista + 1;
+  if (C.saida == null && C.turno != null && !hdr[C.turno + 1]) C.saida = C.turno + 1;
+  const body = rows.slice(hi + 1, hi + 400);
+  if (C.empresa == null || !body.some(r => empKey(r[C.empresa]) !== 'outros')) {
+    let best = -1, bc = 0;
+    for (let c = 0; c < (rows[0] || []).length; c++) { const n = body.filter(r => empKey(r[c]) !== 'outros').length; if (n > bc) { bc = n; best = c; } }
+    if (best >= 0) C.empresa = best;
+  }
+  if (C.prefixo == null && C.empresa != null) C.prefixo = C.empresa + 1;
+  const D = {dia:0, data:1, motorista:2, obs:3, linha:4, tipo:5, turno:6, saida:7, chegada:8, empresa:9, prefixo:10};
+  for (const k in D) if (C[k] == null) C[k] = D[k];
+  return {COL: C, start: hi + 1};
+}
+
+function showDiag() {
+  const el = document.getElementById('diag'); if (!el) return;
+  const msgs = [], unk = DATA.filter(r => empKey(r.empresa) === 'outros');
+  if (unk.length) msgs.push(`⚠ ${unk.length} de ${DATA.length} serviços sem empresa reconhecida: <strong>${[...new Set(unk.map(r => r.empresa || '(vazio)'))].slice(0, 6).join(', ')}</strong> (coluna lida: ${COL.empresa + 1})`);
+  if (SCRIPT_VER < 3) msgs.push(`⚠ Apps Script desatualizado (versão ${SCRIPT_VER}): cole o código novo em Como configurar e faça Implantar → Nova implantação. As substituições dependem dele.`);
+  el.style.display = msgs.length ? 'block' : 'none';
+  el.innerHTML = msgs.join('<br>');
+}
+
+// Próxima aba = dia seguinte à última aba diária; modelo = mesmo dia da semana mais recente
+function planNext() {
+  if (!TABS.length) return null;
+  const last = TABS[TABS.length - 1], nd = new Date(last.date); nd.setDate(nd.getDate() + 1);
+  const w = nd.getDay(), p2 = n => String(n).padStart(2, '0');
+  const prev = TABS.slice().reverse().find(t => t.date.getDay() === w && t.date < nd) || last;
+  const WD = ['DOMINGO','SEGUNDA FEIRA','TERÇA FEIRA','QUARTA FEIRA','QUINTA FEIRA','SEXTA FEIRA','SABADO'];
+  const DN = ['Domingo','Segunda Feira','Terça Feira','Quarta Feira','Quinta Feira','Sexta Feira','Sábado'];
+  const dd = p2(nd.getDate()), mm = p2(nd.getMonth() + 1), yy = nd.getFullYear();
+  return {last, prev, name: `${dd}-${mm}-${String(yy).slice(2)} ${WD[w]}`, dia: DN[w], iso: `${yy}-${mm}-${dd}`, label: `${dd}/${mm}/${yy}`};
+}
+
+async function syncData() {
+  if (!CFG.url) { setStatus('idle','Configure o Apps Script primeiro'); nav(document.querySelector('[data-panel="ajuda"]')); return; }
+  setStatus('spin','Sincronizando…');
+  document.getElementById('btn-sync').disabled=true;
+
+  try {
+    await resolveTab();
+    const res  = await fetch(CFG.url+'?tab='+encodeURIComponent(CFG.tab||''));
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+
+    const rows = json.values||[];
+    // ── Dynamic column detection ─────────────────────────────────────────────────
+    // Reads the actual header row to find each column index.
+    // This makes the dashboard work regardless of sheet layout variations.
+    const det = detectCols(rows); COL = det.COL; const start = det.start;
+
+    DATA = rows.slice(start).map((r,k)=>({
+      titular:  subTitular((json.notes||[])[start+k], cel(r, COL.motorista), cel(r, COL.obs)),
+      dia:      cel(r, COL.dia),
+      data:     cel(r, COL.data),
+      motorista:cel(r, COL.motorista),
+      obs:      cel(r, COL.obs),
+      linha:    cel(r, COL.linha),
+      tipo:     cel(r, COL.tipo),
+      turno:    cel(r, COL.turno),
+      saida:    celT(r, COL.saida),
+      chegada:  celT(r, COL.chegada),
+      empresa:  cel(r, COL.empresa),
+      prefixo:  cel(r, COL.prefixo),
+    })).filter(r=>r.motorista&&r.motorista!==','&&r.linha);
+
+    const d=DATA.find(r=>r.data)?.data||'—';
+    const dy=DATA.find(r=>r.dia)?.dia||'—';
+    setStatus('ok','Sync: '+new Date().toLocaleTimeString('pt-BR'));
+    document.getElementById('sb-date').textContent=dy+' '+d;
+    document.getElementById('top-title').textContent='Escala — '+dy+', '+d;
+    document.getElementById('top-sub').textContent=DATA.length+' serviços · aba "'+CFG.tab+'"';
+    detect();
+
+    // DEBUG: log first 10 empresa values to console
+    console.log('=== DEBUG empresa values (first 10) ===');
+    DATA.slice(0,10).forEach((r,i) => {
+      console.log(i, JSON.stringify({empresa: r.empresa, key: empKey(r.empresa), linha: r.linha}));
+    });
+    const empCounts = {};
+    DATA.forEach(r => { const k=empKey(r.empresa); empCounts[k]=(empCounts[k]||0)+1; });
+    console.log('=== empKey distribution ===', empCounts);
+
+    renderAll();
+  } catch(e) {
+    setStatus('err','Erro: '+e.message);
+    showModal(`<h3>❌ Erro ao sincronizar</h3>
+      <p><strong>Detalhe:</strong> ${e.message}</p>
+      <p>Verifique:</p>
+      <ul>
+        <li>URL do Apps Script correta em <strong>⚙ Configuração</strong></li>
+        <li>Script publicado com acesso <strong>"Qualquer pessoa"</strong></li>
+        <li>Nome da aba correto (com acentos e maiúsculas iguais)</li>
+        <li>Após alterar o código: <strong>"Nova implantação"</strong></li>
+      </ul>
+      <div class="modal-actions">
+        <button class="btn outline" onclick="nav(document.querySelector('[data-panel=ajuda]'));closeModal()">Ver passo a passo</button>
+        <button class="btn outline" onclick="closeModal()">Fechar</button>
+      </div>`);
+  } finally {
+    document.getElementById('btn-sync').disabled=false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONFLICT DETECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+function detect() {
+  CONF = {drivers:[],cars:[],folga:[],open:[]};
+  CONF.open = DATA.filter(isOpen);
+
+  // Group by driver
+  const byD={};
+  DATA.filter(r=>!isOpen(r)&&r.motorista).forEach(r=>{
+    const k=r.motorista.toLowerCase().trim();
+    if (!byD[k]) byD[k]=[];
+    byD[k].push(r);
+  });
+
+  Object.values(byD).forEach(rows=>{
+    // Folga com ativo
+    if (rows.some(r=>!isFolga(r)) && rows.some(isFolga))
+      CONF.folga.push({motorista:rows[0].motorista, linhas:rows.map(r=>r.linha)});
+
+    // Horário encavalado (< 30 min entre chegadas)
+    for (let i=0;i<rows.length;i++) for (let j=i+1;j<rows.length;j++) {
+      const a=rows[i], b=rows[j];
+      const at=toMin(a.chegada), bt=toMin(b.chegada);
+      if (at!==null&&bt!==null&&at!==bt&&Math.abs(at-bt)<30) {
+        const dup = CONF.drivers.find(c=>
+          c.motorista.toLowerCase()===rows[0].motorista.toLowerCase()&&
+          c.linha1===a.linha&&c.linha2===b.linha);
+        if (!dup)
+          CONF.drivers.push({
+            motorista:rows[0].motorista,
+            linha1:a.linha, emp1:a.empresa, h1:a.chegada,
+            linha2:b.linha, emp2:b.empresa, h2:b.chegada,
+            diff:Math.abs(at-bt)
+          });
+      }
+    }
+  });
+
+  // Prefixo duplicado no mesmo horário
+  const byC={};
+  DATA.forEach(r=>{
+    if (isSkipPrefixo(r.prefixo)) return;
+    if (!byC[r.prefixo]) byC[r.prefixo]=[];
+    byC[r.prefixo].push(r);
+  });
+  Object.entries(byC).forEach(([p,rows])=>{
+    if (rows.length<2) return;
+    for (let i=0;i<rows.length;i++) for (let j=i+1;j<rows.length;j++) {
+      const a=rows[i],b=rows[j];
+      const at=toMin(a.chegada),bt=toMin(b.chegada);
+      if (at!==null&&bt!==null&&at===bt)
+        CONF.cars.push({prefixo:p,mot1:a.motorista,lin1:a.linha,emp1:a.empresa,mot2:b.motorista,lin2:b.linha,emp2:b.empresa,hora:a.chegada});
+    }
+  });
+
+  // Update KPIs
+  document.getElementById('k-total').textContent    = DATA.length;
+  document.getElementById('k-mot').textContent      = new Set(DATA.filter(r=>!isOpen(r)).map(r=>r.motorista.toLowerCase())).size;
+  document.getElementById('k-conf-drv').textContent = CONF.drivers.length;
+  document.getElementById('k-conf-car').textContent = CONF.cars.length;
+  document.getElementById('k-open').textContent     = CONF.open.length;
+  document.getElementById('k-folga').textContent    = DATA.filter(isFolga).length;
+
+  // Update alert badge
+  const tot = CONF.drivers.length+CONF.cars.length+CONF.folga.length+CONF.open.length;
+  const b=document.getElementById('bdg-alertas');
+  b.textContent=tot||'✓';
+  b.className='nav-badge'+(tot>0?'':' ok');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── SUBSTITUIÇÕES (folguistas) ──────────────────────────────────────────────
+// Titular vem da nota da célula Motorista ("Titular: X") ou, em abas antigas, do padrão "X / Y" + Folga
+function subTitular(note, motorista, obs) {
+  const m = /Titular:\s*([^\n(]+)/.exec(note || '');
+  if (m) return m[1].trim();
+  if (motorista.includes('/') && /folga/i.test(obs)) return motorista.split('/')[0].trim();
+  return '';
+}
+const nkc = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+const nameHits = (drv, key) => !!key && String(drv).split('/').some(p => { const k = nkc(p); return k && (k === key || key.startsWith(k + ' ') || k.startsWith(key + ' ')); });
+
+async function loadPlan() {
+  const m = TABRE.exec(CFG.tab || '');
+  if (!m || !CFG.url || SCRIPT_VER < 3) { PLAN = null; return; }
+  const iso = `${2000 + +m[3]}-${m[2]}-${m[1]}`;
+  if (PLAN && !PLAN.error && PLAN.date === iso) return;
+  try {
+    const j = await (await fetch(CFG.url + '?action=plan&date=' + iso)).json();
+    PLAN = j.error ? {error: j.error, date: iso} : j;
+  } catch (e) { PLAN = {error: e.message, date: iso}; }
+  renderSubs();
+}
+
+// Com o plano 5x1: pares previstos para a data da aba, conferidos contra a escala.
+// Sem o plano: só o que a aba registra (nota "Titular: X" ou "X / Y" + Folga).
+function renderSubs() {
+  const el = document.getElementById('subs-root'); if (!el) return;
+  const warn = t => `<div class="warn-box" style="margin-bottom:10px">${t}</div>`;
+  let head = '', L = [];
+  if (SCRIPT_VER < 3) head = warn('⚠ Apps Script desatualizado: sem ele o painel não lê o plano 5x1. Cole o código novo (Como configurar) e faça Implantar → Nova implantação.');
+  else if (!PLAN) head = warn('Carregando plano 5x1…');
+  else if (PLAN.error) head = warn('⚠ ' + PLAN.error);
+  if (PLAN && PLAN.members) {
+    head = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Plano: ${PLAN.tab} · ${PLAN.date}</div>`;
+    const blank = PLAN.members.filter(m => m.role === 'fixo' && m.st === 'F' && !m.key);
+    if (blank.length) head += warn(`⚠ ${blank.length} posto(s) sem nome no plano estão de folga hoje (grupo ${[...new Set(blank.map(m => m.g))].join(', ')}); não há como saber quem substituir.`);
+    const grp = {};
+    PLAN.members.forEach(m => { const g = grp[m.g] = grp[m.g] || {fix: [], fol: null}; if (m.role === 'folguista') g.fol = m; else g.fix.push(m); });
+    Object.keys(grp).forEach(g => {
+      const f = grp[g].fol, fOK = f && f.st === 'T' && f.key;
+      grp[g].fix.filter(x => x.st === 'F' && x.key).forEach(x => {
+        const plain = DATA.filter(r => !r.motorista.includes('/') && nameHits(r.motorista, x.key));
+        const tit = DATA.filter(r => r.titular && nameHits(r.titular, x.key));
+        const cov = fOK ? DATA.filter(r => nameHits(r.motorista, f.key)) : [];
+        const lines = plain.length ? plain : [...new Set([...tit, ...cov])];
+        if (!lines.length) return;
+        const st = plain.length ? '⚠ Titular ainda escalado' : !fOK ? '⚠ Sem folguista' : '✓ Coberto';
+        L.push({g, t: x.short, f: fOK ? f.short : '—', lines, bad: st[0] === '⚠', st});
+      });
+    });
+  } else {
+    const map = {};
+    DATA.filter(r => r.titular).forEach(r => {
+      const open = r.motorista === 'SUBSTITUIR', em = r.motorista.includes('/') ? r.motorista.split('/')[1].trim() : r.motorista;
+      (map[r.titular + '|' + em] = map[r.titular + '|' + em] || {g: '', t: r.titular, f: open ? '—' : em, lines: [], bad: open, st: open ? '⚠ Sem folguista' : '✓ Registrado na aba'}).lines.push(r);
+    });
+    L = Object.values(map);
+  }
+  const b = document.getElementById('bdg-subs'); if (b) b.textContent = L.length;
+  el.innerHTML = head + (L.length
+    ? `<table class="tbl"><thead><tr><th>Grupo</th><th>Substituído (folga)</th><th>Em campo</th><th>Linhas</th><th>Status</th></tr></thead><tbody>` +
+      L.map(x => `<tr class="${x.bad ? 'rr' : ''}"><td>${x.g}</td><td>${x.t}</td><td><strong>${x.f}</strong></td><td style="font-size:11px">${x.lines.map(r => r.linha + ' · ' + r.chegada + ' · ' + r.empresa).join('<br>')}</td><td>${x.st}</td></tr>`).join('') + '</tbody></table>'
+    : '<div class="empty">Nenhuma substituição nesta escala.</div>');
+}
+
+function renderAll() { showDiag(); renderSubs(); loadPlan();
+  renderAlerts();
+  renderResumo();
+  renderTimeline();
+  COMPANIES.forEach(co => renderCompany(co));
+  renderDrivers();
+  renderVehicles();
+}
+
+// ─── ALERTS ──────────────────────────────────────────────────────────────────
+function renderAlerts() {
+  const el=document.getElementById('al-root');
+  const tot=CONF.drivers.length+CONF.cars.length+CONF.folga.length+CONF.open.length;
+  if (!tot) {
+    el.innerHTML='<div class="ok-box" style="font-size:14px;padding:16px">✅ Nenhuma divergência encontrada na escala atual.</div>';
+    return;
+  }
+
+  let h='';
+
+  if (CONF.open.length) {
+    h+=aCard('warn',`🔓 ${CONF.open.length} linha(s) abertas — sem motorista definido`,CONF.open.length,
+      'Estas linhas estão sem motorista porque o titular está em folga. Defina o substituto na planilha antes do início do turno.',
+      tblHtml(['Linha','Empresa','Turno','Horário','Prefixo','Motivo'],
+        CONF.open.map(r=>[r.linha,r.empresa,r.turno,`<strong>${r.chegada}</strong>`,r.prefixo,`<span style="color:var(--yel);font-size:11px">${r.obs}</span>`])));
+  }
+
+  if (CONF.drivers.length) {
+    const uniq=[...new Map(CONF.drivers.map(c=>[c.motorista+c.linha1+c.linha2,c])).values()];
+    h+=aCard('red',`⚡ ${uniq.length} conflito(s) de horário entre motoristas`,uniq.length,
+      'Estes motoristas estão escalados em dois serviços com menos de 30 minutos de diferença no horário de chegada. Confirme se é viável ou reatribua uma das linhas.',
+      tblHtml(['Motorista','Linha 1','Empresa','Chegada','Linha 2','Empresa','Chegada','Diferença'],
+        uniq.map(c=>[
+          `<strong>${c.motorista}</strong>`,
+          `<span style="font-size:11px">${c.linha1}</span>`,c.emp1,c.h1,
+          `<span style="font-size:11px">${c.linha2}</span>`,c.emp2,c.h2,
+          `<span style="color:var(--red);font-weight:700">${c.diff} min</span>`
+        ])));
+  }
+
+  if (CONF.cars.length) {
+    h+=aCard('red',`🚐 ${CONF.cars.length} prefixo(s) duplicado(s) no mesmo horário`,CONF.cars.length,
+      'O mesmo veículo (prefixo) aparece em dois serviços distintos com chegada no mesmo horário. Substitua o veículo em uma das linhas.',
+      tblHtml(['Prefixo','Motorista 1','Linha','Empresa','Motorista 2','Linha','Empresa','Horário'],
+        CONF.cars.map(c=>[
+          `<strong>${c.prefixo}</strong>`,
+          c.mot1,`<span style="font-size:11px">${c.lin1}</span>`,c.emp1,
+          c.mot2,`<span style="font-size:11px">${c.lin2}</span>`,c.emp2,
+          `<strong>${c.hora}</strong>`
+        ])));
+  }
+
+  if (CONF.folga.length) {
+    h+=aCard('warn',`🏖 ${CONF.folga.length} motorista(s) em folga com serviço ativo`,CONF.folga.length,
+      'Estes motoristas aparecem marcados como "Folga" em uma linha mas também estão activos em outra. Confirme se a folga está correta ou remova o registro duplicado.',
+      tblHtml(['Motorista','Linhas envolvidas'],
+        CONF.folga.map(f=>[`<strong>${f.motorista}</strong>`,`<span style="font-size:11px">${f.linhas.join('<br>')}</span>`])));
+  }
+
+  el.innerHTML=h;
+}
+
+function aCard(type,title,count,fix,table) {
+  const cls=type==='red'?'':'warn';
+  return `<div class="alert-card ${cls}">
+    <div class="alert-head" onclick="togCard(this)">
+      <span class="alert-title">${title}</span>
+      <span class="alert-count">${count}</span>
+      <span class="alert-chev">▼</span>
+    </div>
+    <div class="alert-body">
+      <div class="fix-note"><strong>✏ O que fazer:</strong> ${fix}</div>
+      ${table}
+    </div>
+  </div>`;
+}
+function togCard(h){
+  const b=h.nextElementSibling;
+  b.classList.toggle('open');
+  h.querySelector('.alert-chev').style.transform=b.classList.contains('open')?'rotate(180deg)':'';
+}
+function tblHtml(headers,rows) {
+  return `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+// ─── RESUMO ───────────────────────────────────────────────────────────────────
+function renderResumo() {
+  const el=document.getElementById('resumo-root');
+  if (!DATA.length) return;
+
+  let h=`<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Empresa</th><th>Total serviços</th><th>Motoristas únicos</th><th>Linhas abertas</th><th>Conflitos</th><th>Status</th></tr></thead><tbody>`;
+
+  COMPANIES.forEach(co=>{
+    const rows=DATA.filter(r=>empKey(r.empresa)===co.key);
+    if (!rows.length) return;
+    const mots=new Set(rows.filter(r=>!isOpen(r)).map(r=>r.motorista.toLowerCase())).size;
+    const opens=rows.filter(isOpen).length;
+    const confs=CONF.drivers.filter(c=>rows.some(r=>r.motorista.toLowerCase()===c.motorista.toLowerCase())).length
+               +CONF.cars.filter(c=>rows.some(r=>r.prefixo===c.prefixo&&!isSkipPrefixo(r.prefixo))).length;
+    const ok=opens===0&&confs===0;
+    h+=`<tr style="cursor:pointer" onclick="navToCompany('${co.key}')">
+      <td><span style="font-weight:600">${co.icon} ${co.label}</span></td>
+      <td>${rows.length}</td><td>${mots}</td>
+      <td>${opens>0?`<span style="color:var(--yel);font-weight:700">${opens}</span>`:'<span style="color:var(--grn)">0</span>'}</td>
+      <td>${confs>0?`<span style="color:var(--red);font-weight:700">${confs}</span>`:'<span style="color:var(--grn)">0</span>'}</td>
+      <td>${ok?'<span class="badge ok-badge">✓ OK</span>':'<span class="badge open">⚠ Verificar</span>'}</td>
+    </tr>`;
+    // update sidebar badge
+    const bdg=document.getElementById('bdg-'+co.key);
+    if (bdg) { bdg.textContent=rows.length; bdg.className='nav-badge'+(ok?' ok':' yel'); }
+  });
+
+  h+=`</tbody></table></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">Clique em uma empresa para ver o detalhe das rotas.</div>`;
+  el.innerHTML=h;
+}
+
+function navToCompany(key) {
+  const item=document.querySelector(`[data-panel="${key}"]`);
+  if (item) nav(item);
+}
+
+// ─── TIMELINE ─────────────────────────────────────────────────────────────────
+function renderTimeline() {
+  const el=document.getElementById('tl-root');
+  if (!DATA.length) return;
+  const HRS=[0,2,4,6,8,10,12,14,16,18,20,22,24];
+  let h='';
+  COMPANIES.forEach(co=>{
+    const rows=DATA.filter(r=>empKey(r.empresa)===co.key&&!isOpen(r));
+    if (!rows.length) return;
+    h+=`<div class="tl-row">
+      <div class="tl-lbl" style="color:${co.color}">${co.icon} ${co.label} <span style="font-size:11px;color:var(--text3);font-weight:400">${rows.length} serviços</span></div>
+      <div class="tl-bar">`;
+    HRS.forEach(hh=>{ h+=`<div class="tl-hr-line" style="left:${Math.round(hh/24*100)}%"></div>`; });
+    rows.forEach(r=>{
+      const t=toMin(r.chegada); if (t===null) return;
+      const l=Math.round(t/1440*100);
+      const isConf=CONF.drivers.some(c=>c.motorista.toLowerCase()===r.motorista.toLowerCase());
+      const clr=isConf?'var(--red)':co.color;
+      h+=`<div class="tl-dot" style="left:${l}%;width:5px;background:${clr}" title="${r.motorista} — ${r.linha} (${r.chegada})" onclick="showRowDetail(${DATA.indexOf(r)})"></div>`;
+    });
+    h+=`</div><div class="tl-hrs">${HRS.map(hh=>`<span>${String(hh).padStart(2,'0')}h</span>`).join('')}</div></div>`;
+  });
+  el.innerHTML=h||'<div class="empty">Sem dados</div>';
+}
+
+// ─── COMPANY PANELS ───────────────────────────────────────────────────────────
+function renderCompany(co) {
+  const el=document.getElementById('c-'+co.key);
+  if (!el) return;
+  const rows=DATA.filter(r=>empKey(r.empresa)===co.key);
+  if (!rows.length) {
+    el.innerHTML=`<div class="sec-title">${co.icon} ${co.label}</div><div class="empty"><div class="empty-ico">📋</div>Sem serviços para esta empresa na escala atual</div>`;
+    return;
+  }
+
+  // Group by turno
+  const byT={};
+  rows.forEach(r=>{ const t=r.turno||'Sem turno'; if(!byT[t])byT[t]=[]; byT[t].push(r); });
+  const ORDER=['1º Turno','2º Turno','3º Turno','Madrugada','Manhã','ADM','Meio dia','Tarde','Noite','Sem turno'];
+  const turnos=[...new Set([...ORDER,...Object.keys(byT)])].filter(t=>byT[t]);
+
+  const opens=rows.filter(isOpen).length;
+  const confs=CONF.drivers.filter(c=>rows.some(r=>r.motorista.toLowerCase()===c.motorista.toLowerCase())).length
+             +CONF.cars.filter(c=>rows.some(r=>r.prefixo===c.prefixo&&!isSkipPrefixo(r.prefixo))).length;
+
+  let h=`<div class="sec-title">${co.icon} ${co.label}
+    <span class="sec-sub">${rows.length} serviços</span>
+    ${opens>0?`<span class="conf-tag yel">⚠ ${opens} abertas</span>`:''}
+    ${confs>0?`<span class="conf-tag red">⚡ ${confs} conflitos</span>`:''}
+  </div>`;
+
+  turnos.forEach(t=>{
+    const rs=byT[t].sort((a,b)=>(toMin(a.chegada)||0)-(toMin(b.chegada)||0));
+    h+=`<div class="turno-header">${t} · ${rs.length} serviço${rs.length>1?'s':''}</div>
+    <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Motorista</th><th>Linha</th><th>Tipo</th><th>Saída</th><th>Chegada</th><th>Prefixo</th><th>Obs</th></tr></thead><tbody>`;
+    rs.forEach((r,i)=>{
+      const cls=rowCls(r);
+      const rowIdx=DATA.indexOf(r);
+      const clickable=cls?`onclick="showRowDetail(${rowIdx})" style="cursor:pointer"`:'';
+      h+=`<tr class="${cls}" ${clickable}>
+        <td style="font-weight:${isOpen(r)?700:500};color:${isOpen(r)?'var(--red)':'inherit'}">${r.motorista}</td>
+        <td style="font-size:11px">${r.linha}</td>
+        <td>${typeBadge(r.tipo)}</td>
+        <td>${r.saida||'—'}</td>
+        <td><strong>${r.chegada||'—'}</strong></td>
+        <td style="font-family:monospace;font-size:11px">${r.prefixo||'—'}</td>
+        <td style="font-size:11px;color:var(--text3)">${r.obs}</td>
+      </tr>`;
+    });
+    h+=`</tbody></table></div>`;
+  });
+  el.innerHTML=h;
+}
+
+// ─── ROW DETAIL MODAL (click on conflict row) ─────────────────────────────────
+function showRowDetail(idx) {
+  const r=DATA[idx];
+  if (!r) return;
+  const driverConfs=CONF.drivers.filter(c=>c.motorista.toLowerCase()===r.motorista.toLowerCase());
+  const carConfs=CONF.cars.filter(c=>c.prefixo===r.prefixo&&!isSkipPrefixo(r.prefixo));
+  const open=isOpen(r);
+  const folga=isFolga(r);
+
+  let problems='';
+  if (open) problems+=`<div class="modal-field warn"><strong>⚠ Linha aberta — sem motorista</strong><p>Esta linha não tem motorista atribuído. Substitua "SUBSTITUIR" pelo nome do motorista na planilha.</p></div>`;
+  if (folga&&!open) problems+=`<div class="modal-field warn"><strong>🏖 Motorista em folga</strong><p>${r.motorista} está marcado como folga mas está escalado nesta linha. Confirme ou remova o registro.</p></div>`;
+  driverConfs.forEach(c=>{
+    problems+=`<div class="modal-field"><strong>⚡ Conflito de horário</strong><p><strong>${c.motorista}</strong> aparece em:<br>• ${c.linha1} (${c.emp1}) → chegada ${c.h1}<br>• ${c.linha2} (${c.emp2}) → chegada ${c.h2}<br>Diferença: <strong>${c.diff} minutos</strong>. Reatribua um dos serviços ou confirme viabilidade.</p></div>`;
+  });
+  carConfs.forEach(c=>{
+    problems+=`<div class="modal-field"><strong>🚐 Prefixo duplicado</strong><p>Veículo <strong>${c.prefixo}</strong> está no mesmo horário (${c.hora}) em:<br>• ${c.lin1} — ${c.mot1} (${c.emp1})<br>• ${c.lin2} — ${c.mot2} (${c.emp2})<br>Substitua o veículo em uma das linhas.</p></div>`;
+  });
+  if (!problems) problems=`<div class="ok-box">✓ Nenhuma divergência neste registro.</div>`;
+
+  showModal(`<h3>${r.linha}</h3>
+    <table class="tbl" style="margin-bottom:12px">
+      <tr><td style="color:var(--text3);font-size:11px">Motorista</td><td><strong>${r.motorista}</strong></td></tr>
+      <tr><td style="color:var(--text3);font-size:11px">Empresa</td><td>${r.empresa}</td></tr>
+      <tr><td style="color:var(--text3);font-size:11px">Tipo</td><td>${typeBadge(r.tipo)}</td></tr>
+      <tr><td style="color:var(--text3);font-size:11px">Turno</td><td>${r.turno}</td></tr>
+      <tr><td style="color:var(--text3);font-size:11px">Saída → Chegada</td><td><strong>${r.saida||'—'} → ${r.chegada||'—'}</strong></td></tr>
+      <tr><td style="color:var(--text3);font-size:11px">Prefixo</td><td style="font-family:monospace">${r.prefixo||'—'}</td></tr>
+    </table>
+    <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text2)">Diagnóstico</div>
+    ${problems}
+    <div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>`);
+}
+
+// ─── MOTORISTAS ───────────────────────────────────────────────────────────────
+function renderDrivers() {
+  const el=document.getElementById('drv-root');
+  const map={};
+  DATA.filter(r=>!isOpen(r)&&r.motorista).forEach(r=>{
+    const k=r.motorista.toLowerCase().trim();
+    if (!map[k]) map[k]={name:r.motorista,rows:[]};
+    map[k].rows.push(r);
+  });
+  let h='';
+  Object.values(map).sort((a,b)=>a.name.localeCompare(b.name,'pt')).forEach(({name,rows})=>{
+    const hC=CONF.drivers.some(c=>c.motorista.toLowerCase()===name.toLowerCase());
+    const hF=rows.some(isFolga);
+    const tags=(hC?`<span class="conf-tag red">⚡ Conflito</span> `:'')+(hF?`<span class="conf-tag yel">Folga</span>`:'');
+    h+=`<div class="acc-item" data-name="${name.toLowerCase()}">
+      <div class="acc-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div><span class="acc-name">${name}</span>${tags}</div>
+        <span class="acc-meta">${rows.length} serviço${rows.length!==1?'s':''}</span>
+      </div>
+      <div class="acc-body">
+        <div class="tbl-wrap" style="margin-top:6px"><table class="tbl">
+        <thead><tr><th>Linha</th><th>Empresa</th><th>Tipo</th><th>Turno</th><th>Chegada</th><th>Prefixo</th></tr></thead><tbody>
+        ${rows.sort((a,b)=>(toMin(a.chegada)||0)-(toMin(b.chegada)||0)).map((r,_)=>{
+          const rc=rowCls(r);
+          return `<tr class="${rc}" onclick="showRowDetail(${DATA.indexOf(r)})" style="cursor:pointer">
+            <td style="font-size:11px">${r.linha}</td><td>${r.empresa}</td>
+            <td>${typeBadge(r.tipo)}</td><td>${r.turno}</td>
+            <td><strong>${r.chegada}</strong></td>
+            <td style="font-family:monospace;font-size:11px">${r.prefixo}</td>
+          </tr>`;
+        }).join('')}
+        </tbody></table></div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=h||'<div class="empty">Sem dados</div>';
+}
+
+// ─── VEÍCULOS ─────────────────────────────────────────────────────────────────
+function renderVehicles() {
+  const el=document.getElementById('veh-root');
+  const map={};
+  DATA.forEach(r=>{ if(isSkipPrefixo(r.prefixo))return; if(!map[r.prefixo])map[r.prefixo]=[]; map[r.prefixo].push(r); });
+  let h='';
+  Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([p,rows])=>{
+    const hC=CONF.cars.some(c=>c.prefixo===p);
+    const hR=rows.length>1&&!hC;
+    const tags=(hC?`<span class="conf-tag red">⚡ Duplicado</span> `:'')+(hR?`<span class="conf-tag yel">Reutilizado</span>`:'');
+    h+=`<div class="acc-item" data-name="${p.toLowerCase()}">
+      <div class="acc-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div><span class="acc-name">Prefixo ${p}</span>${tags}</div>
+        <span class="acc-meta">${rows.length} uso${rows.length!==1?'s':''}</span>
+      </div>
+      <div class="acc-body">
+        <div class="tbl-wrap" style="margin-top:6px"><table class="tbl">
+        <thead><tr><th>Motorista</th><th>Linha</th><th>Empresa</th><th>Tipo</th><th>Chegada</th></tr></thead><tbody>
+        ${rows.sort((a,b)=>(toMin(a.chegada)||0)-(toMin(b.chegada)||0)).map(r=>`<tr class="${hC?'rr':''}" onclick="showRowDetail(${DATA.indexOf(r)})" style="cursor:pointer">
+          <td>${r.motorista}</td><td style="font-size:11px">${r.linha}</td><td>${r.empresa}</td>
+          <td>${typeBadge(r.tipo)}</td><td><strong>${r.chegada}</strong></td>
+        </tr>`).join('')}
+        </tbody></table></div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=h||'<div class="empty">Sem dados</div>';
+}
+
+function filterAcc(rootId,v) {
+  document.querySelectorAll('#'+rootId+' .acc-item').forEach(el=>{
+    el.style.display=el.dataset.name.includes(v.toLowerCase())?'':'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GENERATE NEXT DAY
+// ═══════════════════════════════════════════════════════════════════════════════
+function nextDayInfo() {
+  const fd=DATA.find(r=>r.data)?.data||'00/00/0000';
+  const [d,m,y]=fd.split('/').map(Number);
+  const nxt=new Date(y,m-1,d+1);
+  const nd=`${String(nxt.getDate()).padStart(2,'0')}/${String(nxt.getMonth()+1).padStart(2,'0')}/${nxt.getFullYear()}`;
+  const dn=['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'][nxt.getDay()];
+  return {nd,dn};
+}
+
+function buildNextRows(nd,dn) {
+  return DATA.filter(r=>!isFolga(r)).map(r=>({
+    ...r, dia:dn, data:nd,
+    motorista:isOpen(r)?'SUBSTITUIR':r.motorista,
+    obs:isOpen(r)?r.obs:''
+  }));
+}
+
+function openGenModal() {
+  if (!CFG.url) { showModal('<h3>⚠ Configure o Apps Script</h3><p>Cole a URL do Web App em Configuração.</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>'); return; }
+  const p = planNext();
+  if (!p) { showModal('<h3>⚠ Abas não carregadas</h3><p>Clique em Sincronizar e tente de novo. Se persistir, o Apps Script ainda é a versão antiga.</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>'); return; }
+  showModal(`<h3>📅 Gerar escala — ${p.dia}, ${p.label}</h3>
+    <p>Será criada a aba <strong>"${p.name}"</strong>, copiada de <strong>"${p.prev.name}"</strong> (mesmo dia da semana), com a mesma formatação. Só as colunas Dia e Data são atualizadas.</p>
+    <p>Os <strong>folguistas</strong> do plano 5x1 (aba "Escala 5X1" importada na planilha) entram no lugar de quem está de folga na data, dentro do grupo. A planilha guarda só quem trabalha; o substituído fica na nota da célula e no painel <strong>Substituições</strong>.</p>
+    <div class="warn-box">Nenhuma aba existente é alterada. Se já houver uma aba com esse nome, nada é feito.</div>
+    <div class="modal-actions">
+      <button class="btn green" id="btn-gen-tab" onclick="genTab()">✓ Criar aba na planilha</button>
+      <button class="btn outline" onclick="closeModal()">Cancelar</button>
+    </div>`);
+}
+
+async function genTab() {
+  const p = planNext(), btn = document.getElementById('btn-gen-tab');
+  if (btn) { btn.disabled = true; btn.textContent = 'Criando aba…'; }
+  try {
+    const res = await fetch(CFG.url, {method: 'POST', headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({srcTab: p.prev.name, newTab: p.name, afterTab: p.last.name, date: p.iso, dia: p.dia})});
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    closeModal();
+    setStatus('ok', 'Nova aba criada: ' + p.name);
+    showModal(`<h3>✅ Aba "${p.name}" criada</h3>
+      <p>Copiada de "${p.prev.name}" (${json.rows} linhas).<br>Substituições por folguista: <strong>${json.sub || 0}</strong> · Linhas abertas (sem folguista): <strong>${json.open || 0}</strong><br>${[].concat(json.warn || []).join('<br>')}</p>
+      <div class="modal-actions">
+        <button class="btn green" onclick="switchTab('${p.name}')">🔄 Abrir esta aba no dashboard</button>
+        <button class="btn outline" onclick="closeModal()">Fechar</button>
+      </div>`);
+    loadTabs();
+  } catch (e) {
+    closeModal();
+    showModal(`<h3>❌ Erro ao criar aba</h3><p>${e.message}</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>`);
+  }
+}
+
+function switchTab(tabName) {
+  closeModal(); CFG.tab=tabName;
+  localStorage.setItem('esc_cfg',JSON.stringify(CFG));
+  document.getElementById('cfg-tab').value=tabName;
+  syncData();
+}
+
+function genCSV(nd,dn) {
+  const rows=buildNextRows(nd,dn);
+  const hdr='Dia,Data,Motorista,Obs,Linha,Tipo,Turno,Saída,HOR,Empresa,Micro\n';
+  const body=rows.map(r=>[r.dia,r.data,r.motorista,r.obs,r.linha,r.tipo,r.turno,r.saida,r.chegada,r.empresa,r.prefixo].join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+hdr+body],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`escala_${nd.replace(/\//g,'-')}.csv`; a.click();
+  closeModal();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SAMPLE DATA
+// ═══════════════════════════════════════════════════════════════════════════════
+function loadSample() {
+  DATA=[
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Cunha',obs:'',linha:'Linha Shopee 501',tipo:'Saída',turno:'1º Turno',saida:'02:12',chegada:'02:12',empresa:'Shopee',prefixo:'7609'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Leal',obs:'',linha:'Linha Shopee 101',tipo:'Entrada',turno:'1º Turno',saida:'03:03',chegada:'05:00',empresa:'Shopee',prefixo:'7501'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Cunha',obs:'',linha:'Linha JTEKT 108',tipo:'Entrada',turno:'1º Turno',saida:'04:36',chegada:'05:45',empresa:'JTEKT',prefixo:'7609'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Oliveira',obs:'Folga',linha:'Linha ENAEX 402 A',tipo:'Entrada',turno:'1º Turno',saida:'03:47',chegada:'05:00',empresa:'Enaex',prefixo:'7904'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'SUBSTITUIR',obs:'ABERTA - Oliveira em Folga',linha:'Linha ENAEX 402 A',tipo:'Entrada',turno:'1º Turno',saida:'03:47',chegada:'05:00',empresa:'Enaex',prefixo:'7904'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Verneck',obs:'',linha:'Linha 101 - 6X2',tipo:'Entrada',turno:'1º Turno',saida:'04:17',chegada:'05:15',empresa:'Boticário',prefixo:'7805'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Josué',obs:'',linha:'Linha 101 Calamo',tipo:'Entrada',turno:'1º Turno',saida:'03:42',chegada:'05:15',empresa:'Boticário CGS',prefixo:'7911'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Francisco',obs:'',linha:'Linha Hub 101',tipo:'Entrada',turno:'1º Turno',saida:'04:13',chegada:'05:20',empresa:'Boticário HUB',prefixo:'7813'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Fabricio',obs:'',linha:'Linha Forvia SJP 101',tipo:'Entrada',turno:'1º Turno',saida:'03:27',chegada:'05:15',empresa:'Faurecia SJP',prefixo:'7709'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Ademir',obs:'',linha:'Linha Forvia 4B 101',tipo:'Entrada',turno:'1º Turno',saida:'04:42',chegada:'05:40',empresa:'Faurecia 4B',prefixo:'6808'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Adam',obs:'',linha:'Linha JTEKT 101',tipo:'Entrada',turno:'1º Turno',saida:'04:26',chegada:'05:45',empresa:'JTEKT',prefixo:'7803'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Edson',obs:'',linha:'Interno 01',tipo:'Interno',turno:'Madrugada',saida:'03:00',chegada:'03:00',empresa:'Enaex',prefixo:'6707'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Rubens',obs:'',linha:'Plantão das 03:00',tipo:'Plantão',turno:'1º Turno',saida:'03:00',chegada:'03:00',empresa:'Garagem',prefixo:'ok'},
+    {dia:'Sexta Feira',data:'12/06/2026',motorista:'Josué',obs:'',linha:'Reserva no Posto',tipo:'Entrada',turno:'2º Turno',saida:'12:00',chegada:'12:00',empresa:'Reserva no Posto',prefixo:'7911'},
+  ];
+  detect(); renderAll();
+  document.getElementById('sb-date').textContent='Sexta Feira 12/06/2026';
+  document.getElementById('top-title').textContent='Escala — Sexta-feira, 12/06/2026';
+  document.getElementById('top-sub').textContent='(dados de exemplo)';
+  setStatus('ok','Exemplo carregado');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NAV / MODAL / HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+function nav(el) {
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+el.dataset.panel).classList.add('active');
+}
+function showModal(h) { document.getElementById('modal-inner').innerHTML=h; document.getElementById('modal').classList.add('open'); }
+function closeModal()  { document.getElementById('modal').classList.remove('open'); }
+function openSheet()   { window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`,'_blank'); }
+function copyGasCode() {
+  navigator.clipboard.writeText(document.getElementById('gas-code').innerText)
+    .then(()=>showModal('<h3>✅ Código copiado!</h3><p>Cole no editor do Google Apps Script.</p><div class="modal-actions"><button class="btn outline" onclick="closeModal()">Fechar</button></div>'))
+    .catch(()=>{});
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadCfg();
+if (CFG.url) syncData();
+else { nav(document.querySelector('[data-panel="ajuda"]')); setStatus('idle','Configure o Apps Script para começar'); }
+</script>
+</body>
+</html>
